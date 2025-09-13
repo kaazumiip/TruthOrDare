@@ -768,3 +768,74 @@ body {
 .fade-in {
     animation: fadeIn 0.5s ease-in;
 }
+
+/* Mini Player List Styles */
+.players-list-mini {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    padding: 10px;
+    margin-top: 5px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 1000;
+    display: none;
+}
+
+.players-count:hover .players-list-mini {
+    display: block;
+}
+
+.player-tag-mini {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    margin: 2px 0;
+    background: #f8f9fa;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+}
+
+.player-tag-mini:hover {
+    background: #e9ecef;
+    transform: translateX(2px);
+}
+
+.player-name {
+    font-weight: 500;
+    color: #333;
+}
+
+.host-icon {
+    color: #ffd700;
+    margin-left: 5px;
+    font-size: 0.8rem;
+}
+
+.current-player-icon {
+    color: #007bff;
+    margin-left: 5px;
+    font-size: 0.8rem;
+}
+
+/* Enhanced Players Count */
+.players-count {
+    position: relative;
+    cursor: pointer;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    transition: all 0.3s ease;
+}
+
+.players-count:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.05);
+}

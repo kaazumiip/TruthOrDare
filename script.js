@@ -290,10 +290,30 @@ class TruthOrDareGame {
         });
     }
     
+    updateMiniPlayerList() {
+        const playersListMini = document.getElementById('playersListMini');
+        if (!playersListMini) return;
+        
+        playersListMini.innerHTML = '';
+        this.players.forEach(player => {
+            const playerTag = document.createElement('div');
+            playerTag.className = 'player-tag-mini';
+            playerTag.innerHTML = `
+                <span class="player-name">${player.name}</span>
+                ${player.isHost ? '<i class="fas fa-crown host-icon"></i>' : ''}
+                ${player.id === this.socket.id ? '<i class="fas fa-user current-player-icon"></i>' : ''}
+            `;
+            playersListMini.appendChild(playerTag);
+        });
+    }
+    
     updateGameDisplay() {
         document.getElementById('currentRoomCode').textContent = this.roomCode;
         document.getElementById('playersCount').textContent = this.players.length;
         document.getElementById('currentPlayerName').textContent = this.currentPlayer?.name || 'Player 1';
+        
+        // Update mini player list
+        this.updateMiniPlayerList();
         
         // Show/hide start button based on host status and game state
         const startBtn = document.getElementById('startGameBtn');

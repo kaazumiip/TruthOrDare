@@ -76,7 +76,9 @@ class Room {
       id: socketId,
       name: playerName,
       isHost: socketId === this.hostId,
-      score: 0
+      score: 0,
+      isOnline: true,
+      lastSeen: new Date()
     });
   }
 
