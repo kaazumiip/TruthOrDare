@@ -13,8 +13,6 @@ class TruthOrDareGame {
         this.chatEnabled = false;
         this.mediaStream = null;
         this.questions = { truth: [], dare: [] };
-        this.turnTimer = null;
-        this.turnTimeLeft = 30;
         
         this.initializeEventListeners();
         this.initializeSocketListeners();
@@ -147,36 +145,20 @@ class TruthOrDareGame {
             this.gameStarted = true;
             this.players = data.players;
             this.currentPlayer = data.currentPlayer;
-            this.turnInfo = data.turnInfo;
             this.updateGameDisplay();
-            this.updateTurnDisplay();
             this.addChatMessage('System', 'Game started!', false);
         });
         
         
         this.socket.on('challenge-selected', (data) => {
-            this.turnInfo = data.turnInfo;
             this.showCard(data.type, data.question, data.player);
-            this.updateTurnDisplay();
         });
         
         this.socket.on('player-changed', (data) => {
             this.players = data.players;
             this.currentPlayer = data.currentPlayer;
-            this.turnInfo = data.turnInfo;
             this.updateGameDisplay();
-            this.updateTurnDisplay();
             this.resetCard();
-            
-            if (data.autoAdvanced) {
-                this.addChatMessage('System', 'Turn automatically advanced!', false);
-            }
-        });
-
-        // Turn error handling
-        this.socket.on('turn-error', (data) => {
-            console.warn('Turn error:', data.message);
-            this.addChatMessage('System', data.message, false);
         });
         
         // Chat events
@@ -347,91 +329,6 @@ class TruthOrDareGame {
             }
         }
     }
-
-    updateTurnDisplay() {
-        if (!this.turnInfo) return;
-        
-        const isMyTurn = this.isCurrentPlayer();
-        const truthBtn = document.getElementById('truthBtn');
-        const dareBtn = document.getElementById('dareBtn');
-        const nextPlayerBtn = document.getElementById('nextPlayerBtn');
-        
-        // Enable/disable buttons based on turn
-        if (truthBtn) truthBtn.disabled = !isMyTurn;
-        if (dareBtn) dareBtn.disabled = !isMyTurn;
-        if (nextPlayerBtn) nextPlayerBtn.disabled = !isMyTurn;
-        
-        // Update current player display with turn info
-        const currentPlayerName = document.getElementById('currentPlayerName');
-        if (currentPlayerName && this.turnInfo) {
-            const turnText = `Player ${this.turnInfo.currentPlayerIndex + 1} of ${this.turnInfo.totalPlayers}`;
-            currentPlayerName.textContent = `${this.currentPlayer?.name} (${turnText})`;
-        }
-        
-        // Add visual indicator for whose turn it is
-        this.updatePlayerTurnIndicators();
-    }
-
-    updatePlayerTurnIndicators() {
-        // Update mini player list to show current turn
-        const playersListMini = document.getElementById('playersListMini');
-        if (!playersListMini) return;
-        
-        const playerTags = playersListMini.querySelectorAll('.player-tag-mini');
-        playerTags.forEach((tag, index) => {
-            const isCurrentTurn = this.turnInfo && index === this.turnInfo.currentPlayerIndex;
-            const isMyTurn = this.turnInfo && this.turnInfo.currentPlayer?.id === this.socket.id;
-            
-            if (isCurrentTurn) {
-                tag.style.background = isMyTurn ? '#e3f2fd' : '#fff3e0';
-                tag.style.border = isMyTurn ? '2px solid #2196f3' : '2px solid #ff9800';
-                tag.style.fontWeight = 'bold';
-            } else {
-                tag.style.background = '#f8f9fa';
-                tag.style.border = '1px solid #e0e0e0';
-                tag.style.fontWeight = 'normal';
-            }
-        });
-    }
-
-    startTurnTimer() {
-        this.clearTurnTimer();
-        this.turnTimeLeft = 30;
-        
-        const timerElement = document.getElementById('turnTimer');
-        const progressElement = document.getElementById('timerProgress');
-        const textElement = document.getElementById('timerText');
-        
-        if (timerElement) timerElement.style.display = 'block';
-        
-        this.turnTimer = setInterval(() => {
-            this.turnTimeLeft--;
-            
-            if (progressElement) {
-                const percentage = (this.turnTimeLeft / 30) * 100;
-                progressElement.style.width = `${percentage}%`;
-            }
-            
-            if (textElement) {
-                textElement.textContent = `${this.turnTimeLeft}s`;
-            }
-            
-            if (this.turnTimeLeft <= 0) {
-                this.clearTurnTimer();
-                if (timerElement) timerElement.style.display = 'none';
-            }
-        }, 1000);
-    }
-
-    clearTurnTimer() {
-        if (this.turnTimer) {
-            clearInterval(this.turnTimer);
-            this.turnTimer = null;
-        }
-        
-        const timerElement = document.getElementById('turnTimer');
-        if (timerElement) timerElement.style.display = 'none';
-    }
     
     // Game Logic
     selectTruth() {
@@ -463,17 +360,14 @@ class TruthOrDareGame {
         document.getElementById('cardQuestion').textContent = question;
         document.getElementById('nextPlayerBtn').disabled = !this.isCurrentPlayer();
         
-        // Start turn timer
-        this.startTurnTimer();
-        
         // Disable truth/dare buttons temporarily
         document.getElementById('truthBtn').disabled = true;
         document.getElementById('dareBtn').disabled = true;
         
         // Re-enable after 3 seconds
         setTimeout(() => {
-            document.getElementById('truthBtn').disabled = !this.isCurrentPlayer();
-            document.getElementById('dareBtn').disabled = !this.isCurrentPlayer();
+            document.getElementById('truthBtn').disabled = false;
+            document.getElementById('dareBtn').disabled = false;
         }, 3000);
     }
     
@@ -481,7 +375,6 @@ class TruthOrDareGame {
         document.getElementById('cardType').textContent = 'Truth or Dare';
         document.getElementById('cardQuestion').textContent = 'Choose your challenge!';
         document.getElementById('nextPlayerBtn').disabled = !this.isCurrentPlayer();
-        this.clearTurnTimer();
     }
     
     nextPlayer() {
@@ -490,7 +383,7 @@ class TruthOrDareGame {
     }
     
     isCurrentPlayer() {
-        return this.turnInfo && this.turnInfo.currentPlayer && this.turnInfo.currentPlayer.id === this.socket.id;
+        return this.currentPlayer && this.currentPlayer.id === this.socket.id;
     }
     
     // Voice and Chat
