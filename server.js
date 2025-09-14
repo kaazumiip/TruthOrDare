@@ -168,10 +168,7 @@ io.on('connection', (socket) => {
   // Start game
   socket.on('start-game', (data) => {
     const room = rooms.get(data.roomCode);
-    if (!room || socket.id !== room.hostId) {
-      console.log(`Cannot start game: room ${data.roomCode} not found or user ${socket.id} is not host`);
-      return;
-    }
+    if (!room || socket.id !== room.hostId) return;
     
     room.gameStarted = true;
     io.to(data.roomCode).emit('game-started', {
@@ -258,7 +255,6 @@ io.on('connection', (socket) => {
           rooms.delete(roomCode);
           console.log(`Room ${roomCode} deleted (no players)`);
         } else {
-          console.log(`Player ${player.name} left room ${roomCode}, ${room.players.size} players remaining`);
           io.to(roomCode).emit('player-left', {
             player: player.name,
             players: room.getPlayerList()
