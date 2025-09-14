@@ -309,6 +309,7 @@ class TruthOrDareGame {
     
     updateGameDisplay() {
         document.getElementById('currentRoomCode').textContent = this.roomCode;
+        console.log("🔄 Updating display — Current player:", this.currentPlayer);
         document.getElementById('playersCount').textContent = this.players.length;
         document.getElementById('currentPlayerName').textContent = this.currentPlayer?.name || 'Player 1';
         
