@@ -194,7 +194,6 @@ class TruthOrDareGame {
         this.players = [];
         this.updatePlayersList();
         // Auto-generate room code when page loads
-        this.generateRoomCode();
     }
     
     showJoinRoom() {
