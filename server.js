@@ -76,9 +76,7 @@ class Room {
       id: socketId,
       name: playerName,
       isHost: socketId === this.hostId,
-      score: 0,
-      isOnline: true,
-      lastSeen: new Date()
+      score: 0
     });
   }
 
@@ -112,7 +110,7 @@ class Room {
     if (availableQuestions.length === 0) {
       // Reset used questions if all have been used
       this.usedQuestions.clear();
-      return questions[type][Math.floor(Math.random() * questions[type].length)]
+      return questions[type][Math.floor(Math.random() * questions[type].length)];
     }
     const question = availableQuestions[Math.floor(Math.random() * availableQuestions.length)];
     this.usedQuestions.add(question);
