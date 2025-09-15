@@ -103,11 +103,11 @@ class TruthOrDareGame {
             this.isHost = true;
             this.players = [{ id: this.socket.id, name: data.playerName, isHost: true }];
             this.updatePlayersList();
-            document.getElementById('currentRoomCode').textContent = data.roomCode;
             document.getElementById('roomCode').textContent = data.roomCode;
-            // Show the game room after room is created
-            this.showGameRoom();
-            // Don't automatically start the game - let host decide when to start
+            console.log("This is the room code" + this.roomCode);
+            document.getElementById('currentRoomCode').textContent = data.roomCode;
+            // Stay on create room page until game is started
+            this.updateGameDisplay();
         });
         
         this.socket.on('room-joined', (data) => {
@@ -145,8 +145,10 @@ class TruthOrDareGame {
             this.gameStarted = true;
             this.players = data.players;
             this.currentPlayer = data.currentPlayer;
+            this.showGameRoom(); // Show the game room when game starts
             this.updateGameDisplay();
             this.addChatMessage('System', 'Game started!', false);
+            console.log('Game started with current player:', this.currentPlayer);
         });
         
         
@@ -193,7 +195,7 @@ class TruthOrDareGame {
         this.isHost = true;
         this.players = [];
         this.updatePlayersList();
-        // Auto-generate room code when page loads
+        // Don't auto-create room - wait for user to enter name and click start
     }
     
     showJoinRoom() {
@@ -244,8 +246,13 @@ class TruthOrDareGame {
             return;
         }
         
-        // Create the room with the player name
-        this.socket.emit('create-room', { playerName: this.playerName });
+        if (!this.roomCode) {
+            // Create the room with the player name
+            this.socket.emit('create-room', { playerName: this.playerName });
+        } else {
+            // Start the game in the existing room
+            this.socket.emit('start-game', { roomCode: this.roomCode });
+        }
     }
     
     copyRoomCode() {
@@ -296,10 +303,25 @@ class TruthOrDareGame {
     }
     
     updateGameDisplay() {
-        document.getElementById('currentRoomCode').textContent = this.roomCode;
+        // Update room code display
+        const currentRoomCodeEl = document.getElementById('currentRoomCode');
+        if (currentRoomCodeEl) {
+            currentRoomCodeEl.textContent = this.roomCode;
+        }
+        
+        // Update player count
+        const playersCountEl = document.getElementById('playersCount');
+        if (playersCountEl) {
+            playersCountEl.textContent = this.players.length;
+        }
+        
+        // Update current player name
+        const currentPlayerNameEl = document.getElementById('currentPlayerName');
+        if (currentPlayerNameEl) {
+            currentPlayerNameEl.textContent = this.currentPlayer?.name || 'Player 1';
+        }
+        
         console.log("🔄 Updating display — Current player:", this.currentPlayer);
-        document.getElementById('playersCount').textContent = this.players.length;
-        document.getElementById('currentPlayerName').textContent = this.currentPlayer?.name || 'Player 1';
         
         // Update mini player list
         this.updateMiniPlayerList();
@@ -310,9 +332,7 @@ class TruthOrDareGame {
             if (this.isHost && !this.gameStarted) {
                 startBtn.style.display = 'block';
                 startBtn.disabled = false;
-                startBtn.textContent = 'Start Game';
-            } else if (this.isHost && this.gameStarted) {
-                startBtn.style.display = 'none';
+                startBtn.innerHTML = '<i class="fas fa-play"></i> Start Game';
             } else {
                 startBtn.style.display = 'none';
             }

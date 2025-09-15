@@ -165,18 +165,30 @@ io.on('connection', (socket) => {
     console.log(`${playerName} joined room ${roomCode}`);
   });
 
-  // Start game
-  socket.on('start-game', (data) => {
-    const room = rooms.get(data.roomCode);
-    if (!room || socket.id !== room.hostId) return;
-    
-    room.gameStarted = true;
-    io.to(data.roomCode).emit('game-started', {
-      currentPlayer: room.getCurrentPlayer(),
-      players: room.getPlayerList()
-    });
-    console.log(`Game started in room ${data.roomCode}`);
+ // Start game
+socket.on('start-game', (data) => {
+  const room = rooms.get(data.roomCode);
+  if (!room || socket.id !== room.hostId) return;
+
+  // mark game started
+  room.gameStarted = true;
+
+  // Set the first player as current player
+  const playerList = room.getPlayerList();
+  if (playerList.length > 0) {
+    room.currentPlayerIndex = 0;
+  }
+  
+  const currentPlayer = room.getCurrentPlayer();
+
+  io.to(data.roomCode).emit('game-started', {
+    currentPlayer: currentPlayer,
+    players: room.getPlayerList()
   });
+
+  console.log(`Game started in room ${data.roomCode} with current player:`, currentPlayer);
+});
+
 
   // Select truth or dare
   socket.on('select-challenge', (data) => {
