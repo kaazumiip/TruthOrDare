@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Truth or Dare - Multiplayer</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Landing Page -->
+        <div id="landingPage" class="page active">
+            <div class="landing-content">
+                <h1 class="game-title">
+                    <i class="fas fa-gamepad"></i>
+                    Truth or Dare
+                </h1>
+                <p class="game-subtitle">Multiplayer Edition</p>
+                
+                <div class="action-buttons">
+                    <button id="createRoomBtn" class="btn btn-primary">
+                        <i class="fas fa-plus"></i>
+                        Create Room
+                    </button>
+                    <button id="joinRoomBtn" class="btn btn-secondary">
+                        <i class="fas fa-sign-in-alt"></i>
+                        Join Room
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Room Page -->
+        <div id="createRoomPage" class="page">
+            <div class="room-content">
+                <h2><i class="fas fa-crown"></i> Create New Room</h2>
+                <div class="room-code-display">
+                    <label>Room Code:</label>
+                    <div class="code-container">
+                        <span id="roomCode" class="room-code">----</span>
+                        <button id="copyCodeBtn" class="btn btn-small">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="player-info">
+                    <input type="text" id="hostName" placeholder="Enter your name" maxlength="20">
+                    <button id="startGameBtn" class="btn btn-primary" disabled>
+                        <i class="fas fa-play"></i>
+                        Start Game
+                    </button>
+                </div>
+                <div class="waiting-players">
+                    <h3>Waiting for players...</h3>
+                    <div id="playersList" class="players-list"></div>
+                </div>
+                <button id="backToLandingBtn" class="btn btn-outline">
+                    <i class="fas fa-arrow-left"></i>
+                    Back
+                </button>
+            </div>
+        </div>
+
+        <!-- Join Room Page -->
+        <div id="joinRoomPage" class="page">
+            <div class="room-content">
+                <h2><i class="fas fa-sign-in-alt"></i> Join Room</h2>
+                <div class="join-form">
+                    <input type="text" id="roomCodeInput" placeholder="Enter room code" maxlength="6">
+                    <input type="text" id="playerName" placeholder="Enter your name" maxlength="20">
+                    <button id="joinGameBtn" class="btn btn-primary">
+                        <i class="fas fa-sign-in-alt"></i>
+                        Join Game
+                    </button>
+                </div>
+                <button id="backToLandingBtn2" class="btn btn-outline">
+                    <i class="fas fa-arrow-left"></i>
+                    Back
+                </button>
+            </div>
+        </div>
+
+        <!-- Game Room Page -->
+        <div id="gameRoomPage" class="page">
+            <div class="game-header">
+                <div class="room-info">
+                    <span class="room-code-display">Room: <strong id="currentRoomCode">----</strong></span>
+                    <div class="players-count">
+                        <i class="fas fa-users"></i>
+                        <span id="playersCount">1</span> players
+                        <div class="players-list-mini" id="playersListMini"></div>
+                    </div>
+                </div>
+                <div class="game-controls">
+                    <button id="startGameInRoomBtn" class="btn btn-primary" style="display: none;">
+                        <i class="fas fa-play"></i>
+                        Start Game
+                    </button>
+                    <button id="manageQuestionsBtn" class="btn btn-questions">
+                        <i class="fas fa-cog"></i>
+                        Questions
+                    </button>
+                    <button id="voiceToggleBtn" class="btn btn-voice">
+                        <i class="fas fa-microphone"></i>
+                        Voice
+                    </button>
+                    <button id="chatToggleBtn" class="btn btn-chat">
+                        <i class="fas fa-comments"></i>
+                        Chat
+                    </button>
+                </div>
+            </div>
+
+            <div class="game-content">
+                <div class="current-player">
+                    <h3>Current Player: <span id="currentPlayerName">Player 1</span></h3>
+                    <div class="turn-timer" id="turnTimer" style="display: none;">
+                        <div class="timer-bar">
+                            <div class="timer-progress" id="timerProgress"></div>
+                        </div>
+                        <span class="timer-text" id="timerText">30s</span>
+                    </div>
+                </div>
+                
+                <div class="card-container">
+                    <div class="card">
+                        <div class="card-header">
+                            <span id="cardType" class="card-type">Truth</span>
+                        </div>
+                        <div class="card-content">
+                            <p id="cardQuestion">Choose your challenge!</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="game-actions">
+                    <button id="truthBtn" class="btn btn-truth">
+                        <i class="fas fa-heart"></i>
+                        Truth
+                    </button>
+                    <button id="dareBtn" class="btn btn-dare">
+                        <i class="fas fa-fire"></i>
+                        Dare
+                    </button>
+                </div>
+
+                <div class="next-player-section">
+                    <button id="nextPlayerBtn" class="btn btn-next" disabled>
+                        <i class="fas fa-arrow-right"></i>
+                        Next Player
+                    </button>
+                </div>
+            </div>
+
+            <!-- Chat Panel -->
+            <div id="chatPanel" class="chat-panel hidden">
+                <div class="chat-header">
+                    <h4>Chat</h4>
+                    <button id="closeChatBtn" class="btn btn-small">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div id="chatMessages" class="chat-messages"></div>
+                <div class="chat-input">
+                    <input type="text" id="chatInput" placeholder="Type a message...">
+                    <button id="sendMessageBtn" class="btn btn-small">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Voice Panel -->
+            <div id="voicePanel" class="voice-panel hidden">
+                <div class="voice-header">
+                    <h4>Voice Chat</h4>
+                    <button id="closeVoiceBtn" class="btn btn-small">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="voice-controls">
+                    <button id="muteBtn" class="btn btn-voice-control">
+                        <i class="fas fa-microphone"></i>
+                        Mute
+                    </button>
+                    <div class="voice-status">
+                        <span id="voiceStatus">Voice chat ready</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Question Management Modal -->
+    <div id="questionModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Manage Questions</h3>
+                <button id="closeQuestionModal" class="btn btn-small">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="question-tabs">
+                    <button class="tab-btn active" data-tab="truth">Truth Questions</button>
+                    <button class="tab-btn" data-tab="dare">Dare Questions</button>
+                </div>
+                
+                <div id="truthTab" class="tab-content active">
+                    <div class="add-question">
+                        <input type="text" id="newTruthQuestion" placeholder="Add new truth question...">
+                        <button id="addTruthBtn" class="btn btn-small">Add</button>
+                    </div>
+                    <div id="truthQuestionsList" class="questions-list"></div>
+                </div>
+                
+                <div id="dareTab" class="tab-content">
+                    <div class="add-question">
+                        <input type="text" id="newDareQuestion" placeholder="Add new dare question...">
+                        <button id="addDareBtn" class="btn btn-small">Add</button>
+                    </div>
+                    <div id="dareQuestionsList" class="questions-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>

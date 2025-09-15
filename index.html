@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chok Hmong - Party Question Card Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        cream: '#FBE8BA',
+                        pink: '#F4375C',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Comic Sans MS', cursive, sans-serif;
+        }
+        .bubble-button {
+            border-radius: 25px;
+            transition: all 0.3s ease;
+            box-shadow: 0 8px 20px rgba(244, 55, 92, 0.3);
+        }
+        .bubble-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 30px rgba(244, 55, 92, 0.4);
+        }
+        .card {
+            perspective: 1000px;
+            width: 180px;
+            height: 250px;
+        }
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.8s;
+            transform-style: preserve-3d;
+            border-radius: 20px;
+        }
+        .card.flipped .card-inner {
+            transform: rotateY(180deg);
+        }
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .card-back {
+            transform: rotateY(180deg);
+        }
+        .floating {
+            animation: float 6s ease-in-out infinite;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+        .bounce {
+            animation: bounce 2s infinite;
+        }
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-30px); }
+            60% { transform: translateY(-15px); }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-cream via-yellow-100 to-pink-100 min-h-screen">
+    <!-- Home Page -->
+    <div id="homePage" class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <header class="text-center mb-12">
+            <div class="floating">
+                <h1 class="text-6xl font-bold text-pink mb-4 drop-shadow-lg">
+                    🎯 Chok Hmong 🎯
+                </h1>
+                <p class="text-2xl text-gray-700 mb-2">ចុកហ្មង</p>
+            </div>
+            <p class="text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed">
+                Get ready for deep questions that will "chok" you! Challenge yourself with thought-provoking cards that spark conversation and fun moments.
+            </p>
+        </header>
+
+        <!-- Features -->
+        <div class="grid md:grid-cols-3 gap-8 mb-12">
+            <div class="bg-white/70 backdrop-blur-sm p-6 rounded-3xl shadow-lg text-center">
+                <div class="text-4xl mb-4">🎴</div>
+                <h3 class="text-xl font-bold text-pink mb-2">Interactive Cards</h3>
+                <p class="text-gray-600">Flip cards to reveal exciting questions and challenges</p>
+            </div>
+            <div class="bg-white/70 backdrop-blur-sm p-6 rounded-3xl shadow-lg text-center">
+                <div class="text-4xl mb-4">🌍</div>
+                <h3 class="text-xl font-bold text-pink mb-2">Multi-Language</h3>
+                <p class="text-gray-600">Choose between Khmer and English questions</p>
+            </div>
+            <div class="bg-white/70 backdrop-blur-sm p-6 rounded-3xl shadow-lg text-center">
+                <div class="text-4xl mb-4">🎭</div>
+                <h3 class="text-xl font-bold text-pink mb-2">Fun Categories</h3>
+                <p class="text-gray-600">Different types of questions for every mood</p>
+            </div>
+        </div>
+
+        <!-- Game Modes -->
+        <div class="text-center mb-12">
+            <h2 class="text-3xl font-bold text-pink mb-8">Choose Your Adventure</h2>
+            <div class="flex flex-wrap justify-center gap-6">
+                <button onclick="showCategorySelection()" class="bubble-button bg-pink text-white px-8 py-4 text-xl font-bold">
+                    🎯 Single Player
+                </button>
+                
+                <button onclick="window.location.href='multiPlayer.html'" class="bubble-button bg-pink text-white px-8 py-4 text-xl font-bold">
+                    👥 Multiplayer
+                </button>
+                
+            </div>
+        </div>
+
+        <!-- Language Selection -->
+        <div class="text-center">
+            <h3 class="text-2xl font-bold text-pink mb-6">Select Language | ជ្រើសរើសភាសា</h3>
+            <div class="flex justify-center gap-4">
+                <button onclick="setLanguage('english')" class="bubble-button bg-blue-500 text-white px-6 py-3 font-bold">
+                    🇺🇸 English
+                </button>
+                <button onclick="setLanguage('khmer')" class="bubble-button bg-red-500 text-white px-6 py-3 font-bold">
+                    🇰🇭 ខ្មែរ
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Category Selection Page -->
+    <div id="categoryPage" class="hidden container mx-auto px-4 py-8">
+        <div class="text-center mb-8">
+            <button onclick="goHome()" class="bubble-button bg-gray-500 text-white px-4 py-2 mb-4">
+                ← Back Home
+            </button>
+            <h1 class="text-4xl font-bold text-pink mb-4">Choose Your Category</h1>
+            <p class="text-lg text-gray-600">Select a category that matches your mood!</p>
+        </div>
+
+        <!-- Category Cards -->
+        <div class="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto mb-8">
+            <div onclick="selectCategory('normal')" class="cursor-pointer bg-gradient-to-br from-blue-400 to-blue-600 text-white p-6 rounded-3xl shadow-lg hover:shadow-xl transition-all hover:scale-105">
+                <div class="text-center">
+                    <div class="text-6xl mb-4">🤔</div>
+                    <h3 class="text-2xl font-bold mb-2">Normal</h3>
+                    <p class="text-blue-100">Thoughtful questions for everyday conversations and self-reflection</p>
+                </div>
+            </div>
+
+            <div onclick="selectCategory('couple')" class="cursor-pointer bg-gradient-to-br from-pink-400 to-red-500 text-white p-6 rounded-3xl shadow-lg hover:shadow-xl transition-all hover:scale-105">
+                <div class="text-center">
+                    <div class="text-6xl mb-4">💕</div>
+                    <h3 class="text-2xl font-bold mb-2">Couple</h3>
+                    <p class="text-pink-100">Romantic and intimate questions perfect for couples and date nights</p>
+                </div>
+            </div>
+
+            <div onclick="selectCategory('mystery')" class="cursor-pointer bg-gradient-to-br from-purple-500 to-indigo-600 text-white p-6 rounded-3xl shadow-lg hover:shadow-xl transition-all hover:scale-105">
+                <div class="text-center">
+                    <div class="text-6xl mb-4">🔮</div>
+                    <h3 class="text-2xl font-bold mb-2">Mystery</h3>
+                    <p class="text-purple-100">Deep, mysterious questions that explore the unknown and supernatural</p>
+                </div>
+            </div>
+
+            <div onclick="selectCategory('dare')" class="cursor-pointer bg-gradient-to-br from-orange-400 to-red-600 text-white p-6 rounded-3xl shadow-lg hover:shadow-xl transition-all hover:scale-105">
+                <div class="text-center">
+                    <div class="text-6xl mb-4">🔥</div>
+                    <h3 class="text-2xl font-bold mb-2">Dare</h3>
+                    <p class="text-orange-100">Bold challenges and daring questions for the adventurous souls</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Language Selection -->
+        <div class="text-center">
+            <h3 class="text-2xl font-bold text-pink mb-6">Select Language | ជ្រើសរើសភាសា</h3>
+            <div class="flex justify-center gap-4">
+                <button onclick="setLanguage('english')" class="bubble-button bg-blue-500 text-white px-6 py-3 font-bold">
+                    🇺🇸 English
+                </button>
+                <button onclick="setLanguage('khmer')" class="bubble-button bg-red-500 text-white px-6 py-3 font-bold">
+                    🇰🇭 ខ្មែរ
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Page -->
+    <div id="gamePage" class="hidden container mx-auto px-4 py-8">
+        <!-- Game Header -->
+        <div class="text-center mb-8">
+            <button onclick="goBackToCategory()" class="bubble-button bg-gray-500 text-white px-4 py-2 mb-4">
+                ← Back to Categories
+            </button>
+            <h1 class="text-4xl font-bold text-pink mb-2">🎯 Chok Hmong 🎯</h1>
+            <p class="text-lg text-gray-600">Choose a card to reveal your question!</p>
+            <div class="mt-4 flex justify-center gap-4 flex-wrap">
+                <span class="bg-white/70 px-4 py-2 rounded-full text-pink font-bold">
+                    Category: <span id="currentCategory">Normal</span>
+                </span>
+                <span class="bg-white/70 px-4 py-2 rounded-full text-pink font-bold">
+                    Language: <span id="currentLanguage">English</span>
+                </span>
+            </div>
+        </div>
+
+        <!-- Cards Container -->
+        <div class="grid grid-cols-2 gap-6 max-w-md mx-auto mb-8">
+            <div class="card" onclick="flipCard(0)">
+                <div class="card-inner">
+                    <div class="card-front bg-gradient-to-br from-pink to-red-400 text-white shadow-xl">
+                        <div class="text-center">
+                            <div class="text-4xl mb-2">🎴</div>
+                            <p class="text-lg font-bold">Card 1</p>
+                        </div>
+                    </div>
+                    <div class="card-back bg-white shadow-xl border-4 border-pink">
+                        <div class="p-4 text-center">
+                            <p id="question0" class="text-sm font-bold text-gray-800"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" onclick="flipCard(1)">
+                <div class="card-inner">
+                    <div class="card-front bg-gradient-to-br from-blue-400 to-blue-600 text-white shadow-xl">
+                        <div class="text-center">
+                            <div class="text-4xl mb-2">🎴</div>
+                            <p class="text-lg font-bold">Card 2</p>
+                        </div>
+                    </div>
+                    <div class="card-back bg-white shadow-xl border-4 border-blue-500">
+                        <div class="p-4 text-center">
+                            <p id="question1" class="text-sm font-bold text-gray-800"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" onclick="flipCard(2)">
+                <div class="card-inner">
+                    <div class="card-front bg-gradient-to-br from-green-400 to-green-600 text-white shadow-xl">
+                        <div class="text-center">
+                            <div class="text-4xl mb-2">🎴</div>
+                            <p class="text-lg font-bold">Card 3</p>
+                        </div>
+                    </div>
+                    <div class="card-back bg-white shadow-xl border-4 border-green-500">
+                        <div class="p-4 text-center">
+                            <p id="question2" class="text-sm font-bold text-gray-800"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" onclick="flipCard(3)">
+                <div class="card-inner">
+                    <div class="card-front bg-gradient-to-br from-purple-400 to-purple-600 text-white shadow-xl">
+                        <div class="text-center">
+                            <div class="text-4xl mb-2">🎴</div>
+                            <p class="text-lg font-bold">Card 4</p>
+                        </div>
+                    </div>
+                    <div class="card-back bg-white shadow-xl border-4 border-purple-500">
+                        <div class="p-4 text-center">
+                            <p id="question3" class="text-sm font-bold text-gray-800"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Next Button -->
+        <div class="text-center">
+            <button id="nextButton" onclick="nextRound()" class="bubble-button bg-pink text-white px-8 py-3 text-lg font-bold">
+                🔄 Next Set of Cards
+            </button>
+        </div>
+
+        <!-- Instructions -->
+        <div class="bg-white/70 backdrop-blur-sm p-6 rounded-3xl shadow-lg mt-8 max-w-2xl mx-auto">
+            <h3 class="text-xl font-bold text-pink mb-4 text-center">🎯 How to Play</h3>
+            <ul class="space-y-2 text-gray-700">
+                <li>• Click on any card to flip it and reveal a question</li>
+                <li>• Answer the question or complete the challenge</li>
+                <li>• Once flipped, cards stay revealed for this round</li>
+                <li>• Click "Next Set of Cards" to get 4 new cards</li>
+                <li>• Have fun and get ready to be "chok'd" by deep questions!</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        let currentLanguage = 'english';
+        let currentCategory = 'normal';
+        let flippedCards = [false, false, false, false];
+        let currentQuestions = [];
+
+        // Question database organized by categories
+        const questions = {
+            normal: {
+                english: [
+                    "What's the most embarrassing thing that happened to you in public?",
+                    "If you could have dinner with anyone, dead or alive, who would it be?",
+                    "What's your biggest fear that most people don't know about?",
+                    "If you could change one thing about yourself, what would it be?",
+                    "What's the weirdest dream you've ever had?",
+                    "What's your most unpopular opinion?",
+                    "If you had to live in a different country, where would you go?",
+                    "What's your biggest regret in life so far?",
+                    "What's the strangest compliment you've ever received?",
+                    "What's the most childish thing you still do?",
+                    "What's your weirdest habit that you think no one knows about?",
+                    "If you could eliminate one thing from daily life, what would it be?",
+                    "What's the most spontaneous thing you've ever done?",
+                    "What's your most irrational fear?",
+                    "What's the best advice you've ever received?",
+                    "If you could master any skill instantly, what would it be?",
+                    "What's something you believed as a child that was completely wrong?",
+                    "What's the most beautiful place you've ever seen?",
+                    "What's your favorite way to waste time?",
+                    "If you could live in any time period, when would it be?"
+                ],
+                khmer: [
+                    "តើអ្វីជារឿងអាម៉ាសបំផុតដែលកើតឡើងចំពោះអ្នកនៅកន្លែងសាធារណៈ?",
+                    "បើអ្នកអាចញ៉ាំបាយជាមួយនរណាម្នាក់ តើអ្នកនឹងជ្រើសរើសនរណា?",
+                    "តើការភ័យខ្លាចធំបំផុតរបស់អ្នកដែលមនុស្សភាគច្រើនមិនដឹងគឺអ្វី?",
+                    "បើអ្នកអាចផ្លាស់ប្តូរមួយរឿងអំពីខ្លួនអ្នក តើនឹងជាអ្វី?",
+                    "តើសុបិនចំលែកបំផុតដែលអ្នកធ្លាប់មានគឺយ៉ាងណា?",
+                    "តើមតិរបស់អ្នកដែលមនុស្សភាគច្រើនមិនយល់ស្របគឺអ្វី?",
+                    "បើអ្នកត្រូវរស់នៅក្នុងប្រទេសផ្សេង តើអ្នកនឹងជ្រើសរើសទៅណា?",
+                    "តើការសោកស្តាយធំបំផុតក្នុងជីវិតរបស់អ្នកបច្ចុប្បន្នគឺអ្វី?",
+                    "តើការសរសើរចម្លែកបំផុតដែលអ្នកធ្លាប់ទទួលគឺអ្វី?",
+                    "តើរឿងកុមារដែលអ្នកនៅតែធ្វើគឺអ្វី?",
+                    "តើទម្លាប់ចម្លែករបស់អ្នកដែលគិតថាគ្មាននរណាដឹងគឺអ្វី?",
+                    "បើអ្នកអាចលុបចោលរឿងមួយពីជីវិតប្រចាំថ្ងៃ តើនឹងជាអ្វី?",
+                    "តើរឿងដោយមិនគិតទុកជាមុនបំផុតដែលអ្នកធ្លាប់ធ្វើគឺអ្វី?",
+                    "តើការភ័យខ្លាចដែលគ្មានហេតុផលរបស់អ្នកគឺអ្វី?",
+                    "តើដំបូន្មានល្អបំផុតដែលអ្នកធ្លាប់ទទួលគឺអ្វី?",
+                    "បើអ្នកអាចជំនាញអ្វីមួយបានភ្លាមៗ តើនឹងជាអ្វី?",
+                    "តើអ្វីដែលអ្នកជឿពេលកុមារតែខុសទាំងស្រុងគឺអ្វី?",
+                    "តើកន្លែងស្រស់ស្អាតបំផុតដែលអ្នកធ្លាប់ឃើញគឺណា?",
+                    "តើវិធីចំណូលចិត្តរបស់អ្នកក្នុងការចំណាយពេលវេលាគឺអ្វី?",
+                    "បើអ្នកអាចរស់នៅសម័យកាលណាមួយ តើនឹងជានៅពេលណា?"
+                ]
+            },
+            couple: {
+                english: [
+                    "What was your first impression of me?",
+                    "What's your favorite memory of us together?",
+                    "What's something I do that always makes you smile?",
+                    "If we could travel anywhere together, where would you want to go?",
+                    "What's your idea of a perfect date night?",
+                    "What's something you've always wanted to tell me but haven't?",
+                    "What's your favorite thing about our relationship?",
+                    "If we could relive one day together, which day would you choose?",
+                    "What's something new you'd like us to try together?",
+                    "What's your love language and how do you like to receive it?",
+                    "What's a dream you have for our future together?",
+                    "What's something I do that makes you feel most loved?",
+                    "If you could give our relationship a theme song, what would it be?",
+                    "What's your favorite way for us to spend a lazy Sunday?",
+                    "What's something you admire most about me?",
+                    "If we were characters in a movie, what genre would it be?",
+                    "What's a tradition you'd like us to start together?",
+                    "What's your favorite physical feature of mine?",
+                    "What's something funny or embarrassing from our early dates?",
+                    "If you could plan the perfect surprise for me, what would it be?"
+                ],
+                khmer: [
+                    "តើចំណាប់អារម្មណ៍ដំបូងរបស់អ្នកចំពោះខ្ញុំគឺយ៉ាងណា?",
+                    "តើអ្វីជាការចងចាំដ៏ពេញចិត្តបំផុតរបស់យើងគ្នា?",
+                    "តើអ្វីដែលខ្ញុំធ្វើហើយតែងតែធ្វើឱ្យអ្នកញញឹម?",
+                    "បើយើងអាចធ្វើដំណើរទៅណាមួយជាមួយគ្នា តើអ្នកចង់ទៅណា?",
+                    "តើគំនិតរបស់អ្នកអំពីយប់ណាត់ជួបដ៏ល្អឥតខ្ចោះគឺយ៉ាងណា?",
+                    "តើមានអ្វីដែលអ្នកចង់ប្រាប់ខ្ញុំតែមិនទាន់បាននិយាយ?",
+                    "តើអ្វីជាចំណុចដែលអ្នកចូលចិត្តបំផុតអំពីទំនាក់ទំនងរបស់យើង?",
+                    "បើយើងអាចរស់មួយថ្ងៃជាមួយគ្នាម្តងទៀត តើអ្នកនឹងជ្រើសថ្ងៃណា?",
+                    "តើអ្វីថ្មីដែលអ្នកចង់ឱ្យយើងសាកល្បងជាមួយគ្នា?",
+                    "តើភាសាស្នេហារបស់អ្នកគឺអ្វី ហើយអ្នកចូលចិត្តទទួលយ៉ាងណា?",
+                    "តើអ្នកមានសុបិនអ្វីសម្រាប់អនាគតរបស់យើងគ្នា?",
+                    "តើអ្វីដែលខ្ញុំធ្វើហើយធ្វើឱ្យអ្នកមានអារម្មណ៍ថាត្រូវបានស្រលាញ់បំផុត?",
+                    "បើអ្នកអាចផ្តល់បទចម្រៀងមួយឱ្យទំនាក់ទំនងយើង តើនឹងជាបទអ្វី?",
+                    "តើវិធីដែលអ្នកចូលចិត្តបំផុតសម្រាប់ការចំណាយថ្ងៃអាទិត្យយ៉ាងស្ងប់ស្ងាត់គឺអ្វី?",
+                    "តើអ្វីដែលអ្នកកោតសរសើរបំផុតអំពីខ្ញុំ?",
+                    "បើយើងជាតួអង្គនៅក្នុងភាពយន្ត តើនឹងជាប្រភេទអ្វី?",
+                    "តើប្រពៃណីអ្វីដែលអ្នកចង់ឱ្យយើងចាប់ផ្តើមជាមួយគ្នា?",
+                    "តើលក្ខណៈរូបរាងអ្វីរបស់ខ្ញុំដែលអ្នកចូលចិត្តបំផុត?",
+                    "តើមានរឿងអស្ចារ្យឬអាម៉ាសអ្វីពីការណាត់ជួបដំបូងរបស់យើង?",
+                    "បើអ្នកអាចរៀបចំការភ្ញាក់ផ្អើលដ៏ល្អឥតខ្ចោះសម្រាប់ខ្ញុំ តើនឹងជាអ្វី?"
+                ]
+            },
+            mystery: {
+                english: [
+                    "Do you believe in ghosts? What's your scariest supernatural experience?",
+                    "If you could solve one unsolved mystery, which would it be?",
+                    "What's the strangest coincidence that has ever happened to you?",
+                    "Do you think aliens exist? Have you ever seen a UFO?",
+                    "What's the most mysterious dream you've ever had?",
+                    "If you could read one person's mind for 24 hours, who would it be?",
+                    "What conspiracy theory do you secretly believe might be true?",
+                    "Have you ever experienced déjà vu? Describe the strongest one.",
+                    "What's the weirdest thing that has happened to you that you can't explain?",
+                    "If you could time travel, what mystery from the past would you solve?",
+                    "Do you believe in destiny or do we control our own fate?",
+                    "What's the most paranormal experience you've had or heard about?",
+                    "If you found a mysterious door that could lead anywhere, where would you go?",
+                    "What do you think happens to us after we die?",
+                    "Have you ever had a prophetic dream that came true?",
+                    "What's the most unexplainable thing you've witnessed?",
+                    "Do you think there are parallel universes? What's your other self doing?",
+                    "What's a family secret or mystery that you've always wondered about?",
+                    "If you could communicate with animals, what would you ask them?",
+                    "What's the most mysterious place you've ever visited?"
+                ],
+                khmer: [
+                    "តើអ្នកជឿលើខ្មោចទេ? បទពិសោធន៍អរូបីដ៏គួរឱ្យភ័យខ្លាចបំផុតរបស់អ្នកគឺអ្វី?",
+                    "បើអ្នកអាចដោះស្រាយអាថ៌កំបាំងមួយដែលមិនទាន់ដោះស្រាយ តើនឹងជាអ្វី?",
+                    "តើការចៃដន្យចម្លែកបំផុតដែលកើតឡើងចំពោះអ្នកគឺអ្វី?",
+                    "តើអ្នកគិតថាមានជីវិតក្រៅភពទេ? តើអ្នកធ្លាប់ឃើញ UFO ទេ?",
+                    "តើសុបិនអាថ៌កំបាំងបំផុតដែលអ្នកធ្លាប់មានគឺអ្វី?",
+                    "បើអ្នកអាចអានគំនិតនរណាម្នាក់រយៈពេល ២៤ ម៉ោង តើនឹងជានរណា?",
+                    "តើទ្រឹស្តីឃុបឃិតអ្វីដែលអ្នកជឿជាសម្ងាត់ថាប្រហែលជាពិត?",
+                    "តើអ្នកធ្លាប់មានបទពិសោធន៍ déjà vu ទេ? រៀបរាប់អំពីដ៏ខ្លាំងបំផុត។",
+                    "តើរឿងចម្លែកបំផុតដែលកើតឡើងចំពោះអ្នកដែលមិនអាចពន្យល់បានគឺអ្វី?",
+                    "បើអ្នកអាចធ្វើដំណើរឆ្លងកាលវេលា តើអ្នកនឹងដោះស្រាយអាថ៌កំបាំងអ្វីពីអតីតកាល?",
+                    "តើអ្នកជឿលើជោគវាសនា ឬយើងគ្រប់គ្រងជោគវាសនាផ្ទាល់ខ្លួន?",
+                    "តើបទពិសោធន៍អរូបីបំផុតដែលអ្នកមាន ឬធ្លាប់ស្តាប់គឺអ្វី?",
+                    "បើអ្នកកើតមានទ្វារអាថ៌កំបាំងដែលអាចដឹកទៅណាក៏បាន តើអ្នកនឹងទៅណា?",
+                    "តើអ្នកគិតថាមានអ្វីកើតឡើងចំពោះយើងបន្ទាប់ពីស្លាប់?",
+                    "តើអ្នកធ្លាប់មានសុបិនទំនាយដែលក្លាយជាការពិតទេ?",
+                    "តើអ្វីដែលមិនអាចពន្យល់បានបំផុតដែលអ្នកធ្លាប់ឃើញ?",
+                    "តើអ្នកគិតថាមានចក្រវាឡប៉ារ៉ាឡែលទេ? តើខ្លួនអ្នកម្នាក់ទៀតកំពុងធ្វើអ្វី?",
+                    "តើអាថ៌កំបាំងគ្រួសារអ្វីដែលអ្នកតែងចង់ដឹង?",
+                    "បើអ្នកអាចទំនាក់ទំនងជាមួយសត្វ តើអ្នកនឹងសួរពួកវាអ្វី?",
+                    "តើកន្លែងអាថ៌កំបាំងបំផុតដែលអ្នកធ្លាប់ទៅគឺណា?"
+                ]
+            },
+            dare: {
+                english: [
+                    "Do something that scares you but you've always wanted to try!",
+                    "Text your crush or someone you find attractive right now!",
+                    "Post an embarrassing photo of yourself on social media!",
+                    "Call a random number and sing 'Happy Birthday' to whoever answers!",
+                    "Do your best impression of a celebrity for 2 minutes straight!",
+                    "Eat something weird that's available right now!",
+                    "Dance to your favorite song like nobody's watching!",
+                    "Tell someone a secret you've never told anyone before!",
+                    "Do 20 push-ups or jumping jacks right now!",
+                    "Send a voice message to your ex (if you're comfortable)!",
+                    "Take a cold shower or splash cold water on your face!",
+                    "Record yourself singing your favorite song and play it back!",
+                    "Text a friend a compliment out of nowhere!",
+                    "Do a silly walk for the next 5 minutes!",
+                    "Call your parents and tell them you love them!",
+                    "Try to lick your own elbow for 30 seconds!",
+                    "Do your best animal impression!",
+                    "Write a poem about the last thing you ate!",
+                    "Take a selfie making the weirdest face possible!",
+                    "Do something nice for a stranger today!"
+                ],
+                khmer: [
+                    "ធ្វើអ្វីមួយដែលធ្វើឱ្យអ្នកភ័យខ្លាចតែចង់សាកល្បងតាំងពីយូរមកហើយ!",
+                    "ផ្ញើសារទៅអ្នកដែលអ្នកចូលចិត្ត ឬមានអារម្មណ៍ឥឡូវឥឡូវនេះ!",
+                    "ដាក់រូបភាពអាម៉ាសរបស់អ្នកលើបណ្តាញសង្គម!",
+                    "ហៅលេខទូរសព្ទចៃដន្យ ហើយច្រៀងបទ 'Happy Birthday' ទៅអ្នកដែលលើកស្រាប់!",
+                    "ធ្វើការបែលិចតារាសំណព្វដ៏ល្អបំផុតរបស់អ្នករយៈពេល ២ នាទីពេញ!",
+                    "ញ៉ាំអ្វីមួយចម្លែកៗដែលមាននៅពេលនេះ!",
+                    "រាំតាមបទចម្រៀងដែលអ្នកចូលចិត្តដូចជាគ្មាននរណាមើល!",
+                    "ប្រាប់អ្នកណាម្នាក់អំពីអាថ៌កំបាំងដែលមិនធ្លាប់ប្រាប់នរណាពីមុន!",
+                    "ធ្វើហាត់ប្រាណរុញ ២០ ដង ឬលោតលើកជើងឥឡូវនេះ!",
+                    "ផ្ញើសារសំឡេងទៅអតីតគូស្នេហ៍ (បើអ្នកមានអារម្មណ៍ស្រួល)!",
+                    "ងូតទឹកត្រជាក់ ឬជះទឹកត្រជាក់លើមុខ!",
+                    "ថតខ្លួនឯងកំពុងច្រៀងបទចំណូលចិត្ត ហើយចាក់ស្តាប់វិញ!",
+                    "ផ្ញើសារសរសើរមិត្តភក្តិដោយមិនបាននឹកស្មានទុក!",
+                    "ដើរប្លែកៗរយៈពេល ៥ នាទីបន្ទាប់!",
+                    "ហៅឪពុកម្តាយ ហើយប្រាប់ពួកគេថាអ្នកស្រលាញ់ពួកគេ!",
+                    "ព្យាយាមលិទប្រអប់ដៃផ្ទាល់ខ្លួនរយៈពេល ៣០ វិនាទី!",
+                    "ធ្វើការបែលិចសត្វដ៏ល្អបំផុតរបស់អ្នក!",
+                    "សរសេរកំណាព្យអំពីអ្វីចុងក្រោយដែលអ្នកញ៉ាំ!",
+                    "ថតសែលហ្វីធ្វើមុខចម្លែកបំផុតដែលអាច!",
+                    "ធ្វើអ្វីមួយល្អៗសម្រាប់មនុស្សចម្លែកនៅថ្ងៃនេះ!"
+                ]
+            }
+        };
+
+        function setLanguage(lang) {
+            currentLanguage = lang;
+            const languageElement = document.getElementById('currentLanguage');
+            if (languageElement) {
+                languageElement.textContent = lang === 'english' ? 'English' : 'ខ្មែរ';
+            }
+        }
+
+        function showCategorySelection() {
+            document.getElementById('homePage').classList.add('hidden');
+            document.getElementById('categoryPage').classList.remove('hidden');
+        }
+
+        function selectCategory(category) {
+            currentCategory = category;
+            const categoryElement = document.getElementById('currentCategory');
+            if (categoryElement) {
+                categoryElement.textContent = category.charAt(0).toUpperCase() + category.slice(1);
+            }
+            startSinglePlayer();
+        }
+
+        function startSinglePlayer() {
+            document.getElementById('categoryPage').classList.add('hidden');
+            document.getElementById('gamePage').classList.remove('hidden');
+            
+            // Update game theme based on category
+            updateGameTheme();
+            generateNewQuestions();
+        }
+
+        function updateGameTheme() {
+            const body = document.body;
+            
+            switch(currentCategory) {
+                case 'normal':
+                    body.style.background = 'linear-gradient(135deg, #FBE8BA, #E3F2FD, #E8F5E8)';
+                    break;
+                case 'couple':
+                    body.style.background = 'linear-gradient(135deg, #FCE4EC, #FFF0F5, #FFE0E6)';
+                    break;
+                case 'mystery':
+                    body.style.background = 'linear-gradient(135deg, #E8EAF6, #F3E5F5, #E1F5FE)';
+                    break;
+                case 'dare':
+                    body.style.background = 'linear-gradient(135deg, #FFF3E0, #FFEBEE, #FFF8E1)';
+                    break;
+                default:
+                    body.style.background = 'linear-gradient(135deg, #FBE8BA, #FEF9C3, #FCE4EC)';
+            }
+        }
+
+        function goHome() {
+            document.getElementById('gamePage').classList.add('hidden');
+            document.getElementById('categoryPage').classList.add('hidden');
+            document.getElementById('homePage').classList.remove('hidden');
+            
+            // Reset theme
+            document.body.style.background = 'linear-gradient(135deg, #FBE8BA, #FEF9C3, #FCE4EC)';
+            resetGame();
+        }
+
+        function goBackToCategory() {
+            document.getElementById('gamePage').classList.add('hidden');
+            document.getElementById('categoryPage').classList.remove('hidden');
+        }
+
+        function generateNewQuestions() {
+            if (!questions[currentCategory] || !questions[currentCategory][currentLanguage]) {
+                console.error('Questions not found for category:', currentCategory, 'language:', currentLanguage);
+                return;
+            }
+            
+            const availableQuestions = questions[currentCategory][currentLanguage];
+            currentQuestions = [];
+            
+            // Get 4 random questions
+            const usedIndexes = [];
+            while (currentQuestions.length < 4) {
+                const randomIndex = Math.floor(Math.random() * availableQuestions.length);
+                if (!usedIndexes.includes(randomIndex)) {
+                    usedIndexes.push(randomIndex);
+                    currentQuestions.push(availableQuestions[randomIndex]);
+                }
+            }
+
+            // Set questions to cards
+            for (let i = 0; i < 4; i++) {
+                const questionElement = document.getElementById(`question${i}`);
+                if (questionElement) {
+                    questionElement.textContent = currentQuestions[i];
+                    
+                    // Apply Khmer font if language is Khmer
+                    if (currentLanguage === 'khmer') {
+                        questionElement.classList.add('khmer-text');
+                    } else {
+                        questionElement.classList.remove('khmer-text');
+                    }
+                }
+            }
+        }
+
+        function flipCard(cardIndex) {
+            if (!flippedCards[cardIndex]) {
+                const card = document.querySelectorAll('.card')[cardIndex];
+                if (card) {
+                    card.classList.add('flipped');
+                    flippedCards[cardIndex] = true;
+                }
+            }
+        }
+
+        function nextRound() {
+            // Reset all cards
+            const cards = document.querySelectorAll('.card');
+            cards.forEach(card => {
+                card.classList.remove('flipped');
+            });
+            
+            // Reset flipped state
+            flippedCards = [false, false, false, false];
+            
+            // Generate new questions
+            generateNewQuestions();
+            
+            // Add bounce animation to next button
+            const nextButton = document.getElementById('nextButton');
+            if (nextButton) {
+                nextButton.classList.add('bounce');
+                setTimeout(() => {
+                    nextButton.classList.remove('bounce');
+                }, 2000);
+            }
+        }
+
+        function resetGame() {
+            const cards = document.querySelectorAll('.card');
+            cards.forEach(card => {
+                card.classList.remove('flipped');
+            });
+            flippedCards = [false, false, false, false];
+            currentCategory = 'normal';
+            currentLanguage = 'english';
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            generateNewQuestions();
+        });
+    </script>
+</body>
+</html>
