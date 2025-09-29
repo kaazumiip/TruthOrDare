@@ -527,22 +527,24 @@ body {
 }
 
 .card {
-    background: rgba(255, 255, 255, 0.9);
-    backdrop-filter: blur(20px);
-    border-radius: 24px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 2px 8px rgba(0, 0, 0, 0.1);
     overflow: hidden;
-    max-width: 480px;
+    width: 240px;
+    height: 360px;
     margin: 0 auto;
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 2px solid #e0e0e0;
     transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     position: relative;
     transform-style: preserve-3d;
+    display: flex;
+    flex-direction: column;
 }
 
 .card:hover {
-    transform: translateY(-8px) rotateX(5deg);
-    box-shadow: 0 32px 64px rgba(0, 0, 0, 0.2);
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2), 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
 .card.flipping {
@@ -579,30 +581,82 @@ body {
 .card-header {
     background: linear-gradient(135deg, #ff6b9d, #6c5ce7);
     color: white;
-    padding: 24px;
+    padding: 16px;
     text-align: center;
-}
-
-.card-type {
-    font-size: 1.8rem;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 4px;
-}
-
-.card-content {
-    padding: 40px 32px;
-    min-height: 180px;
+    border-bottom: 2px solid #e0e0e0;
+    position: relative;
+    min-height: 60px;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
-.card-content p {
+.card-type {
     font-size: 1.4rem;
-    line-height: 1.5;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    position: relative;
+}
+
+.card-type::before {
+    content: '♠';
+    position: absolute;
+    left: -30px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.2rem;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.card-type::after {
+    content: '♠';
+    position: absolute;
+    right: -30px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.2rem;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.card-content {
+    padding: 24px 20px;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    position: relative;
+}
+
+.card-content::before {
+    content: '♠';
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    font-size: 1.5rem;
+    color: #ff6b9d;
+    opacity: 0.3;
+}
+
+.card-content::after {
+    content: '♠';
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    font-size: 1.5rem;
+    color: #ff6b9d;
+    opacity: 0.3;
+    transform: rotate(180deg);
+}
+
+.card-content p {
+    font-size: 1.1rem;
+    line-height: 1.4;
     color: #2d3436;
     font-weight: 500;
+    text-align: center;
+    margin: 0;
 }
 
 .card.waiting .card-header {
@@ -611,6 +665,40 @@ body {
 
 .card.waiting .card-content {
     background: linear-gradient(135deg, #ffeaa7, #fab1a0);
+}
+
+/* Truth card styling */
+.card.truth .card-header {
+    background: linear-gradient(135deg, #00b894, #00cec9);
+}
+
+.card.truth .card-type::before,
+.card.truth .card-type::after {
+    content: '♥';
+    color: #00b894;
+}
+
+.card.truth .card-content::before,
+.card.truth .card-content::after {
+    content: '♥';
+    color: #00b894;
+}
+
+/* Dare card styling */
+.card.dare .card-header {
+    background: linear-gradient(135deg, #fd79a8, #e84393);
+}
+
+.card.dare .card-type::before,
+.card.dare .card-type::after {
+    content: '♦';
+    color: #fd79a8;
+}
+
+.card.dare .card-content::before,
+.card.dare .card-content::after {
+    content: '♦';
+    color: #fd79a8;
 }
 
 .game-actions {
@@ -975,13 +1063,17 @@ body {
         gap: 12px;
     }
     
+    .card {
+        width: 200px;
+        height: 300px;
+    }
+    
     .card-content {
-        padding: 32px 24px;
-        min-height: 140px;
+        padding: 20px 16px;
     }
     
     .card-content p {
-        font-size: 1.2rem;
+        font-size: 1rem;
     }
     
     .chat-panel, .voice-panel {
@@ -1031,13 +1123,17 @@ body {
         padding: 60px 24px 40px;
     }
     
+    .card {
+        width: 180px;
+        height: 270px;
+    }
+    
     .card-content {
-        padding: 24px 16px;
-        min-height: 120px;
+        padding: 16px 12px;
     }
     
     .card-content p {
-        font-size: 1.1rem;
+        font-size: 0.9rem;
     }
     
     .btn {

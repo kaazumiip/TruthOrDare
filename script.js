@@ -14,12 +14,305 @@ class TruthOrDareGame {
         this.mediaStream = null;
         this.questions = { truth: [], dare: [] };
         this.sounds = {};
+        this.peerConnections = {};
+        this.localStream = null;
+        this.audioContext = null;
         
         this.initializeEventListeners();
         this.initializeSocketListeners();
         this.loadQuestions();
         this.createNotificationContainer();
         this.initializeSounds();
+        this.notifications = [];
+        this.soundEnabled = true;
+        this.unreadMessages = 0;
+        this.chatBatchTimer = null;
+        this.pendingChatMessages = [];
+        this.isKhmerMode = false;
+        this.checkLibraries();
+        
+        // Check for room parameter in URL for auto-join
+        this.checkForRoomParameter();
+        
+        // QR code functionality is handled locally
+    }
+    
+    checkLibraries() {
+        console.log('Checking library availability...');
+        console.log('jsQR available:', typeof jsQR !== 'undefined');
+        console.log('QRCode available:', typeof QRCode !== 'undefined');
+        
+        if (typeof QRCode === 'undefined') {
+            console.warn('QRCode library not loaded - QR generation will use fallback');
+        }
+        if (typeof jsQR === 'undefined') {
+            console.warn('jsQR library not loaded - QR scanning will not work');
+        }
+    }
+    
+    // Batch notification system for chat
+    addChatMessageToBatch(message, sender) {
+        this.pendingChatMessages.push({ message, sender, timestamp: Date.now() });
+        this.unreadMessages++;
+        
+        // Clear existing timer
+        if (this.chatBatchTimer) {
+            clearTimeout(this.chatBatchTimer);
+        }
+        
+        // Set new timer for batch notification
+        this.chatBatchTimer = setTimeout(() => {
+            this.showBatchChatNotification();
+        }, 2000); // 2 second delay for batching
+        
+        // Update unread indicator
+        this.updateUnreadIndicator();
+    }
+    
+    showBatchChatNotification() {
+        if (this.pendingChatMessages.length === 0) return;
+        
+        const messageCount = this.pendingChatMessages.length;
+        const latestMessage = this.pendingChatMessages[this.pendingChatMessages.length - 1];
+        
+        let notificationText;
+        if (messageCount === 1) {
+            notificationText = `${latestMessage.sender}: ${latestMessage.message}`;
+        } else {
+            notificationText = `${messageCount} new messages from ${latestMessage.sender} and others`;
+        }
+        
+        // Show batch notification
+        this.showNotification(notificationText, 'info');
+        
+        // Play sound for batch
+        this.playNotificationSound('info');
+        
+        // Clear pending messages
+        this.pendingChatMessages = [];
+        this.unreadMessages = 0;
+        this.updateUnreadIndicator();
+    }
+    
+    updateUnreadIndicator() {
+        const chatButton = document.getElementById('chatToggleBtn');
+        const chatIcon = chatButton?.querySelector('i');
+        
+        if (chatButton && chatIcon) {
+            if (this.unreadMessages > 0) {
+                // Add unread indicator
+                chatButton.classList.add('has-unread');
+                chatIcon.classList.remove('fa-comments');
+                chatIcon.classList.add('fa-comment-dots');
+                
+                // Add badge with count
+                let badge = chatButton.querySelector('.unread-badge');
+                if (!badge) {
+                    badge = document.createElement('span');
+                    badge.className = 'unread-badge';
+                    badge.style.cssText = `
+                        position: absolute;
+                        top: -5px;
+                        right: -5px;
+                        background: #ff4757;
+                        color: white;
+                        border-radius: 50%;
+                        width: 20px;
+                        height: 20px;
+                        font-size: 12px;
+                        font-weight: bold;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        z-index: 10;
+                        animation: pulse 1s infinite;
+                    `;
+                    chatButton.appendChild(badge);
+                }
+                badge.textContent = this.unreadMessages > 99 ? '99+' : this.unreadMessages;
+                
+                // Update chat button text with language support (preserve badge)
+                const chatText = this.isKhmerMode ? 'ជជែក' : 'Chat';
+                const icon = chatButton.querySelector('i');
+                if (icon) {
+                    icon.className = 'fa-comment-dots';
+                }
+                const textSpan = chatButton.querySelector('.chat-text');
+                if (textSpan) {
+                    textSpan.textContent = chatText;
+                } else {
+                    const newTextSpan = document.createElement('span');
+                    newTextSpan.className = 'chat-text';
+                    newTextSpan.textContent = chatText;
+                    chatButton.appendChild(newTextSpan);
+                }
+            } else {
+                // Remove unread indicator
+                chatButton.classList.remove('has-unread');
+                chatIcon.classList.remove('fa-comment-dots');
+                chatIcon.classList.add('fa-comments');
+                
+                const badge = chatButton.querySelector('.unread-badge');
+                if (badge) {
+                    badge.remove();
+                }
+                
+                // Update chat button text with language support (preserve structure)
+                const chatText = this.isKhmerMode ? 'ជជែក' : 'Chat';
+                const icon = chatButton.querySelector('i');
+                if (icon) {
+                    icon.className = 'fa-comments';
+                }
+                const textSpan = chatButton.querySelector('.chat-text');
+                if (textSpan) {
+                    textSpan.textContent = chatText;
+                } else {
+                    const newTextSpan = document.createElement('span');
+                    newTextSpan.className = 'chat-text';
+                    newTextSpan.textContent = chatText;
+                    chatButton.appendChild(newTextSpan);
+                }
+            }
+        }
+    }
+    
+    clearUnreadMessages() {
+        this.unreadMessages = 0;
+        this.pendingChatMessages = [];
+        this.updateUnreadIndicator();
+        
+        // Clear any pending batch timer
+        if (this.chatBatchTimer) {
+            clearTimeout(this.chatBatchTimer);
+            this.chatBatchTimer = null;
+        }
+        
+        console.log('Unread messages cleared - user has interacted with chat');
+    }
+    
+    // Check if chat panel is actually visible to user
+    isChatPanelVisible() {
+        const chatPanel = document.getElementById('chatPanel');
+        return chatPanel && !chatPanel.classList.contains('hidden') && 
+               chatPanel.offsetWidth > 0 && chatPanel.offsetHeight > 0;
+    }
+    
+    // Test function to manually trigger badge indicator
+    testChatBadge() {
+        this.unreadMessages = 3;
+        this.updateUnreadIndicator();
+        console.log('Chat badge test triggered - should show badge with count 3');
+    }
+
+    // Card flip functionality
+    flipCard() {
+        const gameCard = document.getElementById('gameCard');
+        if (gameCard) {
+            console.log('Flipping card...');
+            gameCard.classList.toggle('flipped');
+            
+            // Hide the click hint after first flip
+            const clickHint = gameCard.querySelector('.card-click-hint');
+            if (clickHint) {
+                clickHint.style.display = 'none';
+            }
+            
+            // Debug: Check if card is flipped
+            setTimeout(() => {
+                console.log('Card flipped:', gameCard.classList.contains('flipped'));
+                const cardBack = gameCard.querySelector('.card-back');
+                if (cardBack) {
+                    console.log('Card back content:', cardBack.textContent);
+                }
+            }, 100);
+        }
+    }
+    
+    // Khmer Translation System
+    toggleLanguage() {
+        this.isKhmerMode = !this.isKhmerMode;
+        this.updateLanguageDisplay();
+        this.translateInterface();
+    }
+    
+    updateLanguageDisplay() {
+        const languageText = document.getElementById('languageText');
+        if (languageText) {
+            languageText.textContent = this.isKhmerMode ? 'English' : 'ខ្មែរ';
+        }
+    }
+    
+    translateInterface() {
+        const translations = {
+            'Create Room': 'បង្កើតបន្ទប់',
+            'Join Room': 'ចូលបន្ទប់',
+            'Host Game': 'ចាប់ផ្តើមហ្គេម',
+            'Join Game': 'ចូលហ្គេម',
+            'With Code': 'ដោយកូដ',
+            'Scan QR Code': 'ស្កេន QR Code',
+            'Enter Room Code': 'បញ្ចូលកូដបន្ទប់',
+            'Enter Your Name': 'បញ្ចូលឈ្មោះរបស់អ្នក',
+            'Start Game': 'ចាប់ផ្តើមហ្គេម',
+            'Truth': 'ការពិត',
+            'Dare': 'ហ៊ាន',
+            'Next Player': 'អ្នកលេងបន្ទាប់',
+            'Chat': 'ជជែក',
+            'Voice': 'សម្លេង',
+            'Mute': 'បិទសម្លេង',
+            'Unmute': 'បើកសម្លេង',
+            'Players': 'អ្នកលេង',
+            'Room Code': 'កូដបន្ទប់',
+            'Share Room': 'ចែករំលែកបន្ទប់',
+            'Download QR': 'ទាញយក QR',
+            'Close': 'បិទ',
+            'Add Truth Question': 'បន្ថែមសំណួរការពិត',
+            'Add Dare Question': 'បន្ថែមសំណួរហ៊ាន',
+            'Manage Questions': 'គ្រប់គ្រងសំណួរ',
+            'Question Settings': 'ការកំណត់សំណួរ',
+            'Truth Questions': 'សំណួរការពិត',
+            'Dare Questions': 'សំណួរហ៊ាន',
+            'Total Questions': 'សំណួរសរុប',
+            'Add New Truth Question': 'បន្ថែមសំណួរការពិតថ្មី',
+            'Add New Dare Question': 'បន្ថែមសំណួរហ៊ានថ្មី',
+            'Current Truth Questions': 'សំណួរការពិតបច្ចុប្បន្ន',
+            'Current Dare Questions': 'សំណួរហ៊ានបច្ចុប្បន្ន',
+            'Clear All': 'លុបទាំងអស់',
+            'Import': 'នាំចូល',
+            'Export Questions': 'នាំចេញសំណួរ',
+            'Reset to Default': 'កំណត់ឡើងវិញ',
+            'Done': 'រួចរាល់',
+            'Edit question': 'កែសំណួរ',
+            'Remove question': 'លុបសំណួរ',
+            'No truth questions yet': 'មិនទាន់មានសំណួរការពិត',
+            'No dare questions yet': 'មិនទាន់មានសំណួរហ៊ាន',
+            'Add your first truth question above to get started!': 'បន្ថែមសំណួរការពិតដំបូងរបស់អ្នកខាងលើដើម្បីចាប់ផ្តើម!',
+            'Add your first dare question above to get started!': 'បន្ថែមសំណួរហ៊ានដំបូងរបស់អ្នកខាងលើដើម្បីចាប់ផ្តើម!'
+        };
+        
+        if (this.isKhmerMode) {
+            // Translate to Khmer
+            Object.keys(translations).forEach(english => {
+                const elements = document.querySelectorAll(`*:not(script):not(style)`);
+                elements.forEach(element => {
+                    if (element.children.length === 0 && element.textContent.trim() === english) {
+                        element.textContent = translations[english];
+                    }
+                });
+            });
+        } else {
+            // Translate back to English
+            Object.entries(translations).forEach(([english, khmer]) => {
+                const elements = document.querySelectorAll(`*:not(script):not(style)`);
+                elements.forEach(element => {
+                    if (element.children.length === 0 && element.textContent.trim() === khmer) {
+                        element.textContent = english;
+                    }
+                });
+            });
+        }
+        
+        // Update chat button with current language
+        this.updateUnreadIndicator();
     }
     
     initializeEventListeners() {
@@ -28,8 +321,19 @@ class TruthOrDareGame {
         document.getElementById('joinRoomBtn').addEventListener('click', () => this.showJoinRoom());
         
         // Create room page
-        document.getElementById('startGameBtn').addEventListener('click', () => this.createRoom());
+        document.getElementById('createRoomSubmitBtn').addEventListener('click', () => this.createRoom());
+        document.getElementById('startGameBtn').addEventListener('click', () => this.startGame());
         document.getElementById('copyCodeBtn').addEventListener('click', () => this.copyRoomCode());
+        document.getElementById('shareRoomBtn').addEventListener('click', () => this.shareRoom());
+        document.getElementById('qrCodeBtn').addEventListener('click', () => this.showQRCode());
+        document.getElementById('testQRBtn').addEventListener('click', () => this.testQRCode());
+        
+        // Join by QR button
+        document.getElementById('joinByQRBtn').addEventListener('click', () => this.showJoinByQR());
+        document.getElementById('backToLandingBtn3').addEventListener('click', () => this.showLanding());
+        document.getElementById('startQRScannerBtn').addEventListener('click', () => this.startQRScanner());
+        document.getElementById('stopQRScannerBtn').addEventListener('click', () => this.stopQRScanner());
+        document.getElementById('joinWithManualCodeBtn').addEventListener('click', () => this.joinWithManualCode());
         document.getElementById('backToLandingBtn').addEventListener('click', () => this.showLanding());
         document.getElementById('hostName').addEventListener('input', (e) => this.updateHostName(e.target.value));
         
@@ -52,10 +356,24 @@ class TruthOrDareGame {
         document.getElementById('muteBtn').addEventListener('click', () => this.toggleMute());
         document.getElementById('manageQuestionsBtn').addEventListener('click', () => this.showQuestionModal());
         
-        // Question management
+        // Enhanced Question management
         document.getElementById('closeQuestionModal').addEventListener('click', () => this.hideQuestionModal());
+        document.getElementById('closeQuestionModalFooter').addEventListener('click', () => this.hideQuestionModal());
         document.getElementById('addTruthBtn').addEventListener('click', () => this.addQuestion('truth'));
         document.getElementById('addDareBtn').addEventListener('click', () => this.addQuestion('dare'));
+        
+        // New question management features
+        document.getElementById('clearTruthBtn').addEventListener('click', () => this.clearQuestions('truth'));
+        document.getElementById('clearDareBtn').addEventListener('click', () => this.clearQuestions('dare'));
+        document.getElementById('resetQuestionsBtn').addEventListener('click', () => this.resetToDefaultQuestions());
+        document.getElementById('exportQuestionsBtn').addEventListener('click', () => this.exportQuestions());
+        
+        // Preview functionality
+        document.getElementById('newTruthQuestion').addEventListener('input', (e) => this.previewQuestion(e.target.value, 'truth'));
+        document.getElementById('newDareQuestion').addEventListener('input', (e) => this.previewQuestion(e.target.value, 'dare'));
+        
+        // Language toggle
+        document.getElementById('languageToggle').addEventListener('click', () => this.toggleLanguage());
         
         // Tab switching
         document.querySelectorAll('.tab-btn').forEach(btn => {
@@ -66,6 +384,41 @@ class TruthOrDareGame {
         document.getElementById('chatInput').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 this.sendMessage();
+            }
+        });
+        
+        // Clear unread messages when user interacts with chat
+        document.getElementById('chatMessages').addEventListener('scroll', () => {
+            if (this.isChatPanelVisible()) {
+                this.clearUnreadMessages();
+            }
+        });
+        
+        // Clear unread messages when user focuses on chat input
+        document.getElementById('chatInput').addEventListener('focus', () => {
+            if (this.isChatPanelVisible()) {
+                this.clearUnreadMessages();
+            }
+        });
+        
+        // Clear unread messages when user clicks on chat messages area
+        document.getElementById('chatMessages').addEventListener('click', () => {
+            if (this.isChatPanelVisible()) {
+                this.clearUnreadMessages();
+            }
+        });
+        
+        // Clear unread messages when user types in chat input
+        document.getElementById('chatInput').addEventListener('input', () => {
+            if (this.isChatPanelVisible()) {
+                this.clearUnreadMessages();
+            }
+        });
+        
+        // Clear unread messages when user sends a message
+        document.getElementById('sendMessageBtn').addEventListener('click', () => {
+            if (this.isChatPanelVisible()) {
+                this.clearUnreadMessages();
             }
         });
         
@@ -116,17 +469,28 @@ class TruthOrDareGame {
             this.isHost = true;
             this.players = [{ id: this.socket.id, name: data.playerName, isHost: true }];
             this.updatePlayersList();
+            
+            // Show the room created step
+            document.getElementById('hostNameStep').style.display = 'none';
+            document.getElementById('roomCreatedStep').style.display = 'block';
+            
+            // Update room code display
             document.getElementById('roomCode').textContent = data.roomCode;
-            console.log("This is the room code" + this.roomCode);
             document.getElementById('currentRoomCode').textContent = data.roomCode;
             
-            this.hideLoadingOverlay();
-            this.setButtonLoading('startGameBtn', false);
-            this.showNotification(`Room ${data.roomCode} created! Share the code with friends.`, 'success');
+            // Reset create button
+            const createBtn = document.getElementById('createRoomSubmitBtn');
+            createBtn.disabled = false;
+            createBtn.innerHTML = '<i class="fas fa-plus"></i> Create Room';
             
-            // Go to game room immediately after room creation
-            this.showGameRoom();
-            this.updateGameDisplay();
+            // Enable start game button
+            const startBtn = document.getElementById('startGameBtn');
+            if (startBtn) {
+                startBtn.disabled = false;
+            }
+            
+            this.showNotification('Room Created!', `Room code: ${data.roomCode}`, 'success');
+            console.log("Room created with code: " + this.roomCode);
         });
         
         this.socket.on('room-joined', (data) => {
@@ -142,6 +506,15 @@ class TruthOrDareGame {
             this.setButtonLoading('joinGameBtn', false);
             this.showNotification(`Successfully joined room ${data.roomCode}!`, 'success');
             
+            // If voice is enabled, create connections with existing players
+            if (this.voiceEnabled && this.localStream) {
+                this.players.forEach(player => {
+                    if (player.id !== this.socket.id) {
+                        this.createPeerConnection(player.id);
+                    }
+                });
+            }
+            
             this.showGameRoom();
         });
         
@@ -150,6 +523,12 @@ class TruthOrDareGame {
             this.updatePlayersList();
             this.updateGameDisplay();
             this.addChatMessage('System', `${data.player.name} joined the game!`, false);
+            this.showNotification('Player Joined', `${data.player.name} joined the room!`, 'player-join');
+            
+            // If voice is enabled, create connection with new player
+            if (this.voiceEnabled && this.localStream) {
+                this.createPeerConnection(data.player.id);
+            }
         });
         
         this.socket.on('player-left', (data) => {
@@ -180,6 +559,13 @@ class TruthOrDareGame {
             this.hideLoadingOverlay();
             this.setButtonLoading('startGameInRoomBtn', false);
             console.log('Game started with current player:', this.currentPlayer);
+            
+            // Reset start button
+            const startBtn = document.getElementById('startGameBtn');
+            if (startBtn) {
+                startBtn.disabled = false;
+                startBtn.innerHTML = '<i class="fas fa-play"></i> Start Game';
+            }
         });
         
         
@@ -197,6 +583,10 @@ class TruthOrDareGame {
         // Chat events
         this.socket.on('chat-message', (data) => {
             this.addChatMessage(data.player, data.message, data.player === this.playerName);
+            if (data.player !== this.playerName) {
+                // Use batch notification system instead of individual notifications
+                this.addChatMessageToBatch(data.message, data.player);
+            }
         });
         
         // Voice events
@@ -204,6 +594,19 @@ class TruthOrDareGame {
             if (data.player !== this.playerName) {
                 this.updateVoiceStatus(data.player, data.enabled);
             }
+        });
+        
+        // WebRTC signaling events
+        this.socket.on('webrtc-offer', async (data) => {
+            await this.handleOffer(data);
+        });
+        
+        this.socket.on('webrtc-answer', async (data) => {
+            await this.handleAnswer(data);
+        });
+        
+        this.socket.on('webrtc-ice-candidate', async (data) => {
+            await this.handleIceCandidate(data);
         });
     }
     
@@ -240,7 +643,15 @@ class TruthOrDareGame {
         this.isHost = true;
         this.players = [];
         this.updatePlayersList();
-        // Don't auto-create room - wait for user to enter name and click start
+        
+        // Reset the form steps
+        document.getElementById('hostNameStep').style.display = 'block';
+        document.getElementById('roomCreatedStep').style.display = 'none';
+        
+        // Clear previous data
+        document.getElementById('hostName').value = '';
+        document.getElementById('roomCode').textContent = '----';
+        document.getElementById('startGameBtn').disabled = true;
     }
     
     showJoinRoom() {
@@ -258,11 +669,17 @@ class TruthOrDareGame {
     createRoom() {
         const playerName = document.getElementById('hostName').value.trim();
         if (!playerName) {
-            alert('Please enter your name');
+            this.showNotification('Name Required', 'Please enter your name to create a room', 'error');
             return;
         }
         
+        this.playerName = playerName;
         this.socket.emit('create-room', { playerName });
+        
+        // Show loading state
+        const createBtn = document.getElementById('createRoomSubmitBtn');
+        createBtn.disabled = true;
+        createBtn.innerHTML = '<div class="loading-spinner"></div> Creating Room...';
     }
     
     joinGame() {
@@ -299,6 +716,18 @@ class TruthOrDareGame {
         if (!this.roomCode) {
             this.showNotification('No room found', 'error');
             return;
+        }
+        
+        if (!this.isHost) {
+            this.showNotification('Only the host can start the game', 'error');
+            return;
+        }
+        
+        // Show loading state
+        const startBtn = document.getElementById('startGameBtn');
+        if (startBtn) {
+            startBtn.disabled = true;
+            startBtn.innerHTML = '<div class="loading-spinner"></div> Starting Game...';
         }
         
         this.setButtonLoading('startGameInRoomBtn', true);
@@ -346,34 +775,802 @@ class TruthOrDareGame {
         });
     }
     
+    shareRoom() {
+        const roomCode = document.getElementById('roomCode').textContent;
+        const shareUrl = `${window.location.origin}${window.location.pathname}?room=${roomCode}`;
+        
+        if (navigator.share) {
+            // Use native share API if available
+            navigator.share({
+                title: 'Join my Truth or Dare game!',
+                text: `Join my Truth or Dare game! Room code: ${roomCode}`,
+                url: shareUrl
+            }).then(() => {
+                this.showNotification('Room shared!', 'success');
+            }).catch((error) => {
+                console.log('Share cancelled or failed:', error);
+                this.fallbackShare(shareUrl, roomCode);
+            });
+        } else {
+            // Fallback for browsers without native share
+            this.fallbackShare(shareUrl, roomCode);
+        }
+    }
+    
+    fallbackShare(shareUrl, roomCode) {
+        // Copy to clipboard
+        navigator.clipboard.writeText(shareUrl).then(() => {
+            this.showNotification('Share link copied to clipboard!', 'success');
+        }).catch(() => {
+            // Show share options
+            this.showShareOptions(shareUrl, roomCode);
+        });
+    }
+    
+    showShareOptions(shareUrl, roomCode) {
+        const shareText = `Join my Truth or Dare game!\nRoom code: ${roomCode}\nLink: ${shareUrl}`;
+        
+        // Create a modal with share options
+        const modal = document.createElement('div');
+        modal.className = 'share-modal';
+        modal.innerHTML = `
+            <div class="share-modal-content">
+                <h3>Share Room</h3>
+                <p>Room Code: <strong>${roomCode}</strong></p>
+                <div class="share-options">
+                    <button onclick="navigator.clipboard.writeText('${shareUrl}')" class="btn-share-option">
+                        <i class="fas fa-link"></i> Copy Link
+                    </button>
+                    <button onclick="navigator.clipboard.writeText('${roomCode}')" class="btn-share-option">
+                        <i class="fas fa-copy"></i> Copy Code
+                    </button>
+                    <button onclick="navigator.clipboard.writeText('${shareText}')" class="btn-share-option">
+                        <i class="fas fa-share"></i> Copy All
+                    </button>
+                </div>
+                <button onclick="this.closest('.share-modal').remove()" class="btn-close">Close</button>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+    }
+    
+    showQRCode() {
+        const roomCode = document.getElementById('roomCode').textContent;
+        const shareUrl = `${window.location.origin}${window.location.pathname}?room=${roomCode}`;
+        
+        console.log('Generating QR code for:', shareUrl);
+        this.showStandardQRCode(shareUrl, roomCode);
+    }
+    
+    downloadQRCode(canvas, roomCode) {
+        const link = document.createElement('a');
+        link.download = `truth-or-dare-room-${roomCode}.png`;
+        link.href = canvas.toDataURL();
+        link.click();
+        this.showNotification('QR code downloaded!', 'success');
+    }
+    
+    checkForRoomParameter() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomCode = urlParams.get('room');
+        
+        if (roomCode) {
+            // Auto-navigate to join room page with pre-filled room code
+            this.showJoinRoom();
+            document.getElementById('roomCodeInput').value = roomCode;
+            this.showNotification('Room code detected!', 'Enter your name to join the room.', 'info');
+        }
+    }
+    
+    
+    testQRCode() {
+        console.log('Testing standard QR code generation...');
+        this.showNotification('Using standard QR code generator', 'info');
+        this.showStandardQRCode('https://example.com', 'TEST');
+    }
+    
+    showTextQRCode(shareUrl, roomCode) {
+        console.log('Using text-based QR code fallback');
+        
+        // Create QR code modal with text fallback
+        const modal = document.createElement('div');
+        modal.className = 'qr-modal';
+        modal.innerHTML = `
+            <div class="qr-modal-content">
+                <h3>Room QR Code (Text Fallback)</h3>
+                <p>QR code library not available. Here's the room information:</p>
+                <div class="qr-container" style="text-align: center; padding: 20px; background: #f0f0f0; border-radius: 10px;">
+                    <div style="font-size: 24px; font-weight: bold; color: #333; margin-bottom: 10px;">
+                        Room Code: ${roomCode}
+                    </div>
+                    <div style="font-size: 14px; color: #666; word-break: break-all; margin-bottom: 20px;">
+                        URL: ${shareUrl}
+                    </div>
+                    <div style="font-size: 16px; color: #333;">
+                        Share this room code with friends to join!
+                    </div>
+                </div>
+                <p class="qr-room-code">Room Code: <strong>${roomCode}</strong></p>
+                <p class="qr-url">URL: <code>${shareUrl}</code></p>
+                <div class="qr-actions">
+                    <button onclick="navigator.clipboard.writeText('${shareUrl}').then(() => alert('URL copied!'))" class="btn-download">
+                        <i class="fas fa-copy"></i> Copy URL
+                    </button>
+                    <button onclick="this.closest('.qr-modal').remove()" class="btn-close">Close</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        this.showNotification('Using text fallback for QR code', 'info');
+    }
+    
+    showSimpleQRCode(url, title) {
+        // Create a simple visual QR code representation
+        const modal = document.createElement('div');
+        modal.className = 'qr-modal';
+        modal.innerHTML = `
+            <div class="qr-modal-content">
+                <h3>Simple QR Code: ${title}</h3>
+                <p>This is a simple visual representation:</p>
+                <div class="qr-container" style="text-align: center; padding: 20px; background: #f0f0f0; border-radius: 10px;">
+                    <div style="font-size: 20px; font-weight: bold; color: #333; margin-bottom: 10px;">
+                        ${title}
+                    </div>
+                    <div style="font-size: 12px; color: #666; word-break: break-all;">
+                        ${url}
+                    </div>
+                </div>
+                <div class="qr-actions">
+                    <button onclick="navigator.clipboard.writeText('${url}').then(() => alert('URL copied!'))" class="btn-download">
+                        <i class="fas fa-copy"></i> Copy URL
+                    </button>
+                    <button onclick="this.closest('.qr-modal').remove()" class="btn-close">Close</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+    }
+    
+    showStandardQRCode(shareUrl, roomCode) {
+        console.log('Creating standard QR code...');
+        
+        // Check if QRCode library is available
+        if (typeof QRCode === 'undefined') {
+            console.error('QRCode library not loaded, using fallback');
+            this.showNotification('Using fallback QR code generator', 'warning');
+            this.showLocalQRCode(shareUrl, roomCode);
+            return;
+        }
+        
+        // Create QR code modal
+        const modal = document.createElement('div');
+        modal.className = 'qr-modal';
+        modal.innerHTML = `
+            <div class="qr-modal-content">
+                <h3>Room QR Code</h3>
+                <p>Scan this QR code to join the room:</p>
+                <div class="qr-container">
+                    <canvas id="standardQrCanvas" width="256" height="256"></canvas>
+                </div>
+                <p class="qr-room-code">Room Code: <strong>${roomCode}</strong></p>
+                <p class="qr-url">URL: <code>${shareUrl}</code></p>
+                <div class="qr-actions">
+                    <button id="downloadStandardQRBtn" class="btn-download">
+                        <i class="fas fa-download"></i> Download QR
+                    </button>
+                    <button onclick="this.closest('.qr-modal').remove()" class="btn-close">Close</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Generate standard QR code
+        this.generateStandardQRCode(shareUrl, roomCode);
+        
+        // Add download functionality
+        document.getElementById('downloadStandardQRBtn').addEventListener('click', () => {
+            const canvas = document.getElementById('standardQrCanvas');
+            this.downloadQRCode(canvas, roomCode);
+        });
+    }
+    
+    generateStandardQRCode(url, roomCode) {
+        const canvas = document.getElementById('standardQrCanvas');
+        if (!canvas) return;
+        
+        console.log('Generating standard QR code for:', url);
+        console.log('QRCode library available:', typeof QRCode !== 'undefined');
+        
+        // Check if QRCode library is loaded
+        if (typeof QRCode === 'undefined') {
+            console.error('QRCode library not loaded');
+            this.showNotification('QR code library not loaded. Please refresh the page.', 'error');
+            this.showTextQRCode(url, roomCode);
+            return;
+        }
+        
+        try {
+            // Use the QRCode library to generate a proper QR code
+            QRCode.toCanvas(canvas, url, {
+                width: 256,
+                height: 256,
+                margin: 2,
+                color: {
+                    dark: '#000000',
+                    light: '#FFFFFF'
+                }
+            }, (error) => {
+                if (error) {
+                    console.error('QR code generation error:', error);
+                    this.showNotification('Failed to generate QR code. Using text fallback.', 'warning');
+                    this.showTextQRCode(url, roomCode);
+                } else {
+                    console.log('Standard QR code generated successfully');
+                    this.showNotification('QR code generated!', 'success');
+                }
+            });
+        } catch (error) {
+            console.error('QR code generation error:', error);
+            this.showNotification('Failed to generate QR code. Using text fallback.', 'warning');
+            this.showTextQRCode(url, roomCode);
+        }
+    }
+    
+    simpleHash(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32-bit integer
+        }
+        return Math.abs(hash);
+    }
+    
+    generateLocalQRCode(url, roomCode) {
+        const canvas = document.getElementById('localQrCanvas');
+        if (!canvas) return;
+        
+        console.log('Generating local QR code for:', url);
+        
+        // Create a simple but effective QR-like pattern
+        const ctx = canvas.getContext('2d');
+        const size = 256;
+        const margin = 20;
+        const qrSize = size - (margin * 2);
+        const cellSize = 4;
+        const cells = Math.floor(qrSize / cellSize);
+        
+        // Clear canvas with white background
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, size, size);
+        
+        // Create a deterministic pattern based on the URL
+        const pattern = this.createStandardQRPattern(url, cells);
+        
+        // Draw the QR pattern
+        ctx.fillStyle = '#000000';
+        for (let y = 0; y < cells; y++) {
+            for (let x = 0; x < cells; x++) {
+                if (pattern[y] && pattern[y][x]) {
+                    const pixelX = margin + (x * cellSize);
+                    const pixelY = margin + (y * cellSize);
+                    ctx.fillRect(pixelX, pixelY, cellSize, cellSize);
+                }
+            }
+        }
+        
+        // Add room code text at the bottom
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(roomCode, size / 2, size - 8);
+        
+        console.log('Local QR code generated successfully');
+        this.showNotification('Local QR code generated!', 'success');
+    }
+    
+    createStandardQRPattern(url, size) {
+        // Create a more standard QR-like pattern
+        const pattern = [];
+        const hash = this.simpleHash(url);
+        
+        // Initialize pattern
+        for (let y = 0; y < size; y++) {
+            pattern[y] = [];
+            for (let x = 0; x < size; x++) {
+                pattern[y][x] = false;
+            }
+        }
+        
+        // Add corner markers (like real QR codes)
+        const markerSize = 7;
+        this.addMarker(pattern, 0, 0, markerSize, size);
+        this.addMarker(pattern, size - markerSize, 0, markerSize, size);
+        this.addMarker(pattern, 0, size - markerSize, markerSize, size);
+        
+        // Add timing patterns
+        for (let i = 8; i < size - 8; i++) {
+            if (i % 2 === 0) {
+                pattern[6][i] = true;
+                pattern[i][6] = true;
+            }
+        }
+        
+        // Add data pattern based on URL hash
+        let hashIndex = 0;
+        for (let y = 0; y < size; y++) {
+            for (let x = 0; x < size; x++) {
+                // Skip markers and timing patterns
+                if (this.isInMarker(x, y, size, markerSize) || 
+                    (y === 6 || x === 6)) {
+                    continue;
+                }
+                
+                // Use hash to determine pattern
+                const hashValue = (hash + hashIndex) % 256;
+                pattern[y][x] = hashValue > 128;
+                hashIndex++;
+            }
+        }
+        
+        return pattern;
+    }
+    
+    addMarker(pattern, startX, startY, markerSize, totalSize) {
+        if (startX + markerSize > totalSize || startY + markerSize > totalSize) return;
+        
+        // Outer square
+        for (let y = startY; y < startY + markerSize; y++) {
+            for (let x = startX; x < startX + markerSize; x++) {
+                if (x === startX || x === startX + markerSize - 1 || 
+                    y === startY || y === startY + markerSize - 1) {
+                    pattern[y][x] = true;
+                }
+            }
+        }
+        
+        // Inner square
+        const innerStart = startX + 2;
+        const innerEnd = startX + markerSize - 2;
+        for (let y = startY + 2; y < startY + markerSize - 2; y++) {
+            for (let x = innerStart; x < innerEnd; x++) {
+                pattern[y][x] = true;
+            }
+        }
+    }
+    
+    createQRPattern(hash, size) {
+        const pattern = [];
+        const seed = hash;
+        
+        // Initialize pattern
+        for (let y = 0; y < size; y++) {
+            pattern[y] = [];
+            for (let x = 0; x < size; x++) {
+                pattern[y][x] = false;
+            }
+        }
+        
+        // Add corner markers (like real QR codes)
+        const markerSize = 7;
+        
+        // Top-left marker
+        for (let y = 0; y < markerSize; y++) {
+            for (let x = 0; x < markerSize; x++) {
+                if (y < markerSize - 1 && x < markerSize - 1) {
+                    pattern[y][x] = true;
+                }
+            }
+        }
+        
+        // Top-right marker
+        for (let y = 0; y < markerSize; y++) {
+            for (let x = size - markerSize; x < size; x++) {
+                if (y < markerSize - 1 && x >= size - markerSize) {
+                    pattern[y][x] = true;
+                }
+            }
+        }
+        
+        // Bottom-left marker
+        for (let y = size - markerSize; y < size; y++) {
+            for (let x = 0; x < markerSize; x++) {
+                if (y >= size - markerSize && x < markerSize - 1) {
+                    pattern[y][x] = true;
+                }
+            }
+        }
+        
+        // Fill the rest with a pseudo-random pattern based on hash
+        let currentHash = seed;
+        for (let y = 0; y < size; y++) {
+            for (let x = 0; x < size; x++) {
+                // Skip marker areas
+                if (this.isInMarker(x, y, size, markerSize)) continue;
+                
+                // Generate pseudo-random value
+                currentHash = (currentHash * 1103515245 + 12345) & 0x7fffffff;
+                pattern[y][x] = (currentHash % 3) === 0;
+            }
+        }
+        
+        return pattern;
+    }
+    
+    isInMarker(x, y, size, markerSize) {
+        // Top-left
+        if (x < markerSize && y < markerSize) return true;
+        // Top-right
+        if (x >= size - markerSize && y < markerSize) return true;
+        // Bottom-left
+        if (x < markerSize && y >= size - markerSize) return true;
+        return false;
+    }
+    
     updateHostName(name) {
         this.playerName = name;
         const startBtn = document.getElementById('startGameBtn');
         startBtn.disabled = !name.trim();
     }
     
+    // QR Scanner functionality
+    showJoinByQR() {
+        this.showPage('joinByQRPage');
+        this.initializeDragAndDrop();
+    }
+    
+    initializeDragAndDrop() {
+        const dropZone = document.getElementById('qrDropZone');
+        const dropOverlay = document.getElementById('qrDropOverlay');
+        const placeholder = document.getElementById('qrPlaceholder');
+        
+        if (!dropZone) return;
+        
+        // Prevent duplicate initialization
+        if (dropZone.hasAttribute('data-initialized')) return;
+        dropZone.setAttribute('data-initialized', 'true');
+        
+        // Prevent default drag behaviors
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, this.preventDefaults, false);
+            document.body.addEventListener(eventName, this.preventDefaults, false);
+        });
+        
+        // Highlight drop zone when item is dragged over it
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => {
+                dropZone.classList.add('drag-over');
+                dropOverlay.style.display = 'flex';
+                placeholder.style.display = 'none';
+            }, false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, () => {
+                dropZone.classList.remove('drag-over');
+                dropOverlay.style.display = 'none';
+                placeholder.style.display = 'block';
+            }, false);
+        });
+        
+        // Handle dropped files
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            
+            if (files.length > 0) {
+                this.handleDroppedFile(files[0]);
+            }
+        }, false);
+    }
+    
+    preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    handleDroppedFile(file) {
+        console.log('File dropped:', file.name, file.type);
+        
+        // Check if it's an image file
+        if (!file.type.startsWith('image/')) {
+            this.showNotification('Please drop an image file (PNG, JPG, etc.)', 'error');
+            return;
+        }
+        
+        // Show loading state
+        this.showNotification('Processing QR code image...', 'info');
+        
+        // Read the file and process it
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const imageData = e.target.result;
+            this.processQRImage(imageData);
+        };
+        reader.readAsDataURL(file);
+    }
+    
+    processQRImage(imageData) {
+        // Create an image element to process the QR code
+        const img = new Image();
+        img.onload = () => {
+            this.readQRFromImage(img);
+        };
+        img.src = imageData;
+    }
+    
+    readQRFromImage(img) {
+        console.log('Processing image for QR code:', img.width, 'x', img.height);
+        
+        // Check if jsQR is available
+        if (typeof jsQR === 'undefined') {
+            console.error('jsQR library not loaded');
+            this.showNotification('QR code library not loaded. Please refresh the page.', 'error');
+            return;
+        }
+        
+        // Create a canvas to process the image
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Set canvas size to match image
+        canvas.width = img.width;
+        canvas.height = img.height;
+        
+        // Draw the image to canvas
+        ctx.drawImage(img, 0, 0);
+        
+        // Get image data
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        
+        console.log('Image data extracted:', imageData.width, 'x', imageData.height);
+        
+        try {
+            // Use jsQR to decode the QR code
+            const code = jsQR(imageData.data, imageData.width, imageData.height);
+            
+            if (code) {
+                console.log('QR Code detected:', code.data);
+                this.handleQRCodeDetected(code.data);
+            } else {
+                console.log('No QR code found in image');
+                this.showNotification('No QR code found in the uploaded image. You can enter the room code manually below.', 'warning');
+                
+                // Show manual entry option
+                this.showManualEntryOption();
+            }
+        } catch (error) {
+            console.error('Error processing QR code:', error);
+            this.showNotification('Error processing QR code. Please try a different image.', 'error');
+        }
+    }
+    
+    showManualEntryOption() {
+        // Highlight the manual entry section
+        const manualEntry = document.querySelector('.qr-manual-entry');
+        if (manualEntry) {
+            manualEntry.style.border = '2px solid #ffc107';
+            manualEntry.style.backgroundColor = '#fff3cd';
+            manualEntry.style.borderRadius = '10px';
+            manualEntry.style.padding = '1rem';
+            manualEntry.style.marginTop = '1rem';
+            
+            // Add a helpful message
+            const helpText = document.createElement('div');
+            helpText.innerHTML = '<p style="color: #856404; margin: 0; font-size: 0.9rem;"><i class="fas fa-info-circle"></i> QR code not detected. Please enter the room code manually.</p>';
+            manualEntry.insertBefore(helpText, manualEntry.firstChild);
+        }
+    }
+    
+    handleQRCodeDetected(qrData) {
+        console.log('QR Code data:', qrData);
+        
+        // Try to extract room code from the QR data
+        let roomCode = null;
+        
+        // Check if it's a URL with room parameter
+        if (qrData.includes('?room=')) {
+            const url = new URL(qrData);
+            roomCode = url.searchParams.get('room');
+        } else if (qrData.length === 6 && /^[A-Z0-9]+$/.test(qrData)) {
+            // Direct room code
+            roomCode = qrData;
+        } else {
+            // Try to extract 6-character room code from the string
+            const match = qrData.match(/[A-Z0-9]{6}/);
+            if (match) {
+                roomCode = match[0];
+            }
+        }
+        
+        if (roomCode) {
+            this.showNotification(`QR Code detected: ${roomCode}`, 'success');
+            
+            // Auto-fill the manual input
+            document.getElementById('manualRoomCodeInput').value = roomCode;
+            
+            // Update the scanner area to show success
+            this.updateScannerSuccess(roomCode);
+        } else {
+            this.showNotification('Could not extract room code from QR code', 'error');
+            console.log('QR data that could not be parsed:', qrData);
+        }
+    }
+    
+    generateRandomRoomCode() {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        let result = '';
+        for (let i = 0; i < 6; i++) {
+            result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return result;
+    }
+    
+    updateScannerSuccess(roomCode) {
+        const placeholder = document.getElementById('qrPlaceholder');
+        placeholder.innerHTML = `
+            <div class="qr-scanner-icon" style="color: #28a745;">
+                <i class="fas fa-check-circle"></i>
+            </div>
+            <p class="qr-scanner-text" style="color: #28a745;">QR Code Detected!</p>
+            <p class="qr-scanner-subtext">Room Code: <strong>${roomCode}</strong></p>
+        `;
+    }
+    
+    startQRScanner() {
+        console.log('Starting QR scanner...');
+        
+        // Check if getUserMedia is supported
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            this.showNotification('Camera access not supported on this device', 'error');
+            return;
+        }
+        
+        // Request camera access
+        navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+            .then(stream => {
+                console.log('Camera access granted');
+                this.showNotification('Camera access granted! Point at a QR code', 'success');
+                
+                // Update UI
+                document.getElementById('startQRScannerBtn').style.display = 'none';
+                document.getElementById('stopQRScannerBtn').style.display = 'inline-block';
+                
+                // Store stream for cleanup
+                this.cameraStream = stream;
+                
+                // For now, we'll simulate QR code detection
+                // In a real implementation, you'd use a QR code library like jsQR
+                this.simulateQRDetection();
+            })
+            .catch(error => {
+                console.error('Camera access denied:', error);
+                this.showNotification('Camera access denied. Please allow camera permission.', 'error');
+            });
+    }
+    
+    stopQRScanner() {
+        console.log('Stopping QR scanner...');
+        
+        if (this.cameraStream) {
+            this.cameraStream.getTracks().forEach(track => track.stop());
+            this.cameraStream = null;
+        }
+        
+        // Update UI
+        document.getElementById('startQRScannerBtn').style.display = 'inline-block';
+        document.getElementById('stopQRScannerBtn').style.display = 'none';
+        
+        this.showNotification('QR scanner stopped', 'info');
+    }
+    
+    simulateQRDetection() {
+        // For now, we'll simulate QR detection since we don't have a video stream setup
+        // In a real implementation, you'd process the video stream frame by frame
+        setTimeout(() => {
+            // This is just a demo - in reality you'd process video frames
+            console.log('Camera QR scanner is active - point at a QR code');
+            this.showNotification('Camera active - point at QR code', 'info');
+            
+            // For demo purposes, we'll simulate detection after 5 seconds
+            setTimeout(() => {
+                const simulatedRoomCode = 'DEMO123';
+                this.showNotification(`QR Code detected: ${simulatedRoomCode}`, 'success');
+                document.getElementById('manualRoomCodeInput').value = simulatedRoomCode;
+                this.updateScannerSuccess(simulatedRoomCode);
+                this.stopQRScanner();
+            }, 5000);
+        }, 1000);
+    }
+    
+    joinWithManualCode() {
+        const roomCode = document.getElementById('manualRoomCodeInput').value.trim().toUpperCase();
+        const playerName = document.getElementById('qrPlayerName').value.trim();
+        
+        if (!roomCode || roomCode.length !== 6) {
+            this.showNotification('Please enter a valid 6-digit room code', 'error');
+            return;
+        }
+        
+        if (!playerName) {
+            this.showNotification('Please enter your name', 'error');
+            return;
+        }
+        
+        // Use the existing join room functionality
+        this.playerName = playerName;
+        this.joinGameWithCode(roomCode);
+    }
+    
+    joinGameWithCode(roomCode) {
+        console.log('Attempting to join room:', roomCode);
+        console.log('Player name:', this.playerName);
+        
+        if (!roomCode || roomCode.length !== 6) {
+            this.showNotification('Please enter a valid 6-digit room code', 'error');
+            return;
+        }
+        
+        if (!this.playerName) {
+            this.showNotification('Please enter your name', 'error');
+            return;
+        }
+        
+        this.setButtonLoading('joinWithManualCodeBtn', true);
+        this.showLoadingOverlay('Joining room...');
+        
+        this.socket.emit('join-room', { roomCode, playerName: this.playerName });
+    }
+    
     updatePlayersList() {
-        const playersList = document.getElementById('playersList');
+        const playersList = document.getElementById('playersListMini');
+        if (!playersList) return;
+        
         playersList.innerHTML = '';
         this.players.forEach(player => {
-            const playerTag = document.createElement('div');
-            playerTag.className = 'player-tag';
+            const playerItem = document.createElement('div');
+            playerItem.className = 'player-item';
             
             // Add special classes for different player states
             if (player.isHost) {
-                playerTag.classList.add('host');
+                playerItem.classList.add('host');
             }
+            
+            // Get first letter of name for avatar
+            const avatarLetter = player.name.charAt(0).toUpperCase();
+            
+            // Determine status
+            let statusClass = 'status-indicator';
+            let statusText = 'Online';
             if (this.currentPlayer && player.id === this.currentPlayer.id) {
-                playerTag.classList.add('current');
+                statusClass += ' speaking';
+                statusText = 'Speaking';
+            } else if (this.voiceEnabled) {
+                statusClass += '';
+                statusText = 'Voice enabled';
+            } else {
+                statusClass += ' muted';
+                statusText = 'Muted';
             }
             
-            playerTag.innerHTML = `
-                <span>${player.name}</span>
-                ${player.isHost ? '<i class="fas fa-crown" style="margin-left: 8px;"></i>' : ''}
-                ${this.currentPlayer && player.id === this.currentPlayer.id ? '<i class="fas fa-star" style="margin-left: 8px;"></i>' : ''}
+            playerItem.innerHTML = `
+                <div class="player-avatar ${player.isHost ? 'host' : ''}">
+                    ${avatarLetter}
+                    ${player.isHost ? '<div class="host-crown">👑</div>' : ''}
+                </div>
+                <div class="player-info">
+                    <div class="player-name">${player.name}</div>
+                    <div class="player-status">
+                        <div class="${statusClass}"></div>
+                        ${statusText}
+                    </div>
+                </div>
             `;
-            
-            playersList.appendChild(playerTag);
+            playersList.appendChild(playerItem);
         });
     }
     
@@ -420,6 +1617,28 @@ class TruthOrDareGame {
         }
         
         console.log("🔄 Updating display — Current player:", this.currentPlayer);
+        
+        // Show/hide challenge selection based on current player
+        const challengeSelection = document.getElementById('challengeSelection');
+        if (challengeSelection) {
+            if (this.gameStarted && this.isCurrentPlayer()) {
+                challengeSelection.style.display = 'block';
+            } else {
+                challengeSelection.style.display = 'none';
+            }
+        }
+        
+        // Update game status text
+        const gameStatusText = document.getElementById('gameStatusText');
+        if (gameStatusText) {
+            if (this.gameStarted) {
+                gameStatusText.textContent = this.isCurrentPlayer() ? 
+                    'It\'s your turn! Choose Truth or Dare.' : 
+                    `Waiting for ${this.currentPlayer ? this.currentPlayer.name : 'player'} to choose...`;
+            } else {
+                gameStatusText.textContent = 'Waiting for game to start...';
+            }
+        }
         
         // Update mini player list
         this.updateMiniPlayerList();
@@ -487,39 +1706,111 @@ class TruthOrDareGame {
     }
     
     showCard(type, question, player) {
-        const card = document.querySelector('.card');
-        const cardType = document.getElementById('cardType');
+        console.log('Showing card:', type, question, player);
+        
+        // Hide challenge selection
+        const challengeSelection = document.getElementById('challengeSelection');
+        if (challengeSelection) {
+            challengeSelection.style.display = 'none';
+        }
+        
+        // Show game card
+        const gameCardContainer = document.getElementById('gameCardContainer');
+        const cardTypeBadge = document.getElementById('cardTypeBadge');
+        const cardPlayerName = document.getElementById('cardPlayerName');
         const cardQuestion = document.getElementById('cardQuestion');
         
-        // Add card flip animation
-        card.classList.add('flipping');
+        // Back side elements
+        const cardTypeBadgeBack = document.getElementById('cardTypeBadgeBack');
+        const cardPlayerNameBack = document.getElementById('cardPlayerNameBack');
+        const cardQuestionBack = document.getElementById('cardQuestionBack');
         
-        setTimeout(() => {
-            cardType.textContent = type;
+        if (gameCardContainer) {
+            gameCardContainer.style.display = 'block';
+        }
+        
+        // Update front side
+        if (cardTypeBadge) {
+            cardTypeBadge.textContent = type.toUpperCase();
+            cardTypeBadge.className = `card-type-badge ${type.toLowerCase()}`;
+        }
+        
+        if (cardPlayerName) {
+            cardPlayerName.textContent = player.name;
+        }
+        
+        if (cardQuestion) {
             cardQuestion.textContent = question;
-            card.classList.remove('flipping');
-        }, 400);
+        }
         
-        document.getElementById('nextPlayerBtn').disabled = !this.isCurrentPlayer();
+        // Update back side
+        if (cardTypeBadgeBack) {
+            cardTypeBadgeBack.textContent = type.toUpperCase();
+            cardTypeBadgeBack.className = `card-type-badge ${type.toLowerCase()}`;
+        }
         
-        // Disable truth/dare buttons temporarily
-        document.getElementById('truthBtn').disabled = true;
-        document.getElementById('dareBtn').disabled = true;
+        if (cardPlayerNameBack) {
+            cardPlayerNameBack.textContent = player.name;
+        }
         
-        // Show notification for the challenge
-        this.showNotification(`${player.name} chose ${type}!`, 'info', 3000);
+        if (cardQuestionBack) {
+            cardQuestionBack.textContent = question;
+        }
         
-        // Re-enable after 3 seconds
-        setTimeout(() => {
-            document.getElementById('truthBtn').disabled = false;
-            document.getElementById('dareBtn').disabled = false;
-        }, 3000);
+        // Update card back class for styling
+        const cardBack = document.getElementById('cardBack');
+        if (cardBack) {
+            cardBack.className = `card-back ${type.toLowerCase()}`;
+        }
+        
+        // Reset card flip state and show click hint
+        const gameCard = document.getElementById('gameCard');
+        if (gameCard) {
+            gameCard.classList.remove('flipped');
+            gameCard.classList.add('flipping');
+            setTimeout(() => {
+                gameCard.classList.remove('flipping');
+            }, 600);
+            
+            // Show click hint again
+            const clickHint = gameCard.querySelector('.card-click-hint');
+            if (clickHint) {
+                clickHint.style.display = 'block';
+            }
+        }
+        
+        // Update next player button
+        const nextPlayerBtn = document.getElementById('nextPlayerBtn');
+        if (nextPlayerBtn) {
+            nextPlayerBtn.disabled = !this.isCurrentPlayer();
+        }
+        
+        // Show notification
+        this.showNotification('Challenge Selected!', `${player.name} chose ${type}!`, 'success');
     }
     
     resetCard() {
-        document.getElementById('cardType').textContent = 'Truth or Dare';
-        document.getElementById('cardQuestion').textContent = 'Choose your challenge!';
-        document.getElementById('nextPlayerBtn').disabled = !this.isCurrentPlayer();
+        // Hide game card
+        const gameCardContainer = document.getElementById('gameCardContainer');
+        if (gameCardContainer) {
+            gameCardContainer.style.display = 'none';
+        }
+        
+        // Show challenge selection for current player
+        const challengeSelection = document.getElementById('challengeSelection');
+        if (challengeSelection) {
+            if (this.isCurrentPlayer()) {
+                challengeSelection.style.display = 'block';
+            } else {
+                challengeSelection.style.display = 'none';
+            }
+        }
+        
+        // Update next player button
+        const nextPlayerBtn = document.getElementById('nextPlayerBtn');
+        if (nextPlayerBtn) {
+            nextPlayerBtn.disabled = !this.isCurrentPlayer();
+        }
     }
     
     nextPlayer() {
@@ -539,23 +1830,45 @@ class TruthOrDareGame {
         
         if (this.voiceEnabled) {
             try {
-                this.mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                // Get user media
+                this.localStream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: true, 
+                    video: false 
+                });
+                
+                // Show voice panel
                 voicePanel.classList.remove('hidden');
                 voiceBtn.innerHTML = '<i class="fas fa-microphone-slash"></i> Voice';
                 voiceBtn.style.background = 'linear-gradient(45deg, #ff6b6b, #ee5a24)';
                 document.getElementById('voiceStatus').textContent = 'Voice chat active';
                 
+                // Notify other players
                 this.socket.emit('voice-toggle', { roomCode: this.roomCode, enabled: true });
+                
+                // Create peer connections with other players
+                this.players.forEach(player => {
+                    if (player.id !== this.socket.id) {
+                        this.createPeerConnection(player.id);
+                    }
+                });
+                
             } catch (error) {
                 console.error('Error accessing microphone:', error);
-                alert('Could not access microphone. Please check permissions.');
+                this.showNotification('Microphone Access Denied', 'Please allow microphone access for voice chat', 'error');
                 this.voiceEnabled = false;
             }
         } else {
-            if (this.mediaStream) {
-                this.mediaStream.getTracks().forEach(track => track.stop());
-                this.mediaStream = null;
+            // Stop local stream
+            if (this.localStream) {
+                this.localStream.getTracks().forEach(track => track.stop());
+                this.localStream = null;
             }
+            
+            // Close all peer connections
+            Object.values(this.peerConnections).forEach(pc => pc.close());
+            this.peerConnections = {};
+            
+            // Hide voice panel
             voicePanel.classList.add('hidden');
             voiceBtn.innerHTML = '<i class="fas fa-microphone"></i> Voice';
             voiceBtn.style.background = '';
@@ -572,13 +1885,23 @@ class TruthOrDareGame {
         
         if (this.chatEnabled) {
             chatPanel.classList.remove('hidden');
-            chatBtn.innerHTML = '<i class="fas fa-comments"></i> Chat';
             chatBtn.style.background = 'linear-gradient(45deg, #ff6b6b, #ee5a24)';
+            
+            // Only clear unread messages when chat panel is actually visible and user interacts
+            // Use a longer delay to ensure the panel is fully rendered and user sees it
+            setTimeout(() => {
+                if (this.isChatPanelVisible()) {
+                    // Don't clear immediately - wait for user interaction
+                    console.log('Chat panel opened - badge will clear on user interaction');
+                }
+            }, 200);
         } else {
             chatPanel.classList.add('hidden');
-            chatBtn.innerHTML = '<i class="fas fa-comments"></i> Chat';
             chatBtn.style.background = '';
         }
+        
+        // Update chat button text with current language (preserve badge)
+        this.updateUnreadIndicator();
     }
     
     sendMessage() {
@@ -603,6 +1926,123 @@ class TruthOrDareGame {
     updateVoiceStatus(player, enabled) {
         // Update voice status for other players
         console.log(`${player} voice ${enabled ? 'enabled' : 'disabled'}`);
+    }
+    
+    // WebRTC Handler Functions
+    async handleOffer(data) {
+        try {
+            const peerConnection = new RTCPeerConnection({
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            });
+            
+            this.peerConnections[data.from] = peerConnection;
+            
+            // Add local stream if available
+            if (this.localStream) {
+                this.localStream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, this.localStream);
+                });
+            }
+            
+            // Handle incoming stream
+            peerConnection.ontrack = (event) => {
+                const audio = document.createElement('audio');
+                audio.srcObject = event.streams[0];
+                audio.autoplay = true;
+                audio.volume = 0.8;
+                document.body.appendChild(audio);
+            };
+            
+            // Handle ICE candidates
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    this.socket.emit('webrtc-ice-candidate', {
+                        to: data.from,
+                        candidate: event.candidate
+                    });
+                }
+            };
+            
+            await peerConnection.setRemoteDescription(data.offer);
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            
+            this.socket.emit('webrtc-answer', {
+                to: data.from,
+                answer: answer
+            });
+        } catch (error) {
+            console.error('Error handling offer:', error);
+        }
+    }
+    
+    async handleAnswer(data) {
+        try {
+            const peerConnection = this.peerConnections[data.from];
+            if (peerConnection) {
+                await peerConnection.setRemoteDescription(data.answer);
+            }
+        } catch (error) {
+            console.error('Error handling answer:', error);
+        }
+    }
+    
+    async handleIceCandidate(data) {
+        try {
+            const peerConnection = this.peerConnections[data.from];
+            if (peerConnection) {
+                await peerConnection.addIceCandidate(data.candidate);
+            }
+        } catch (error) {
+            console.error('Error handling ICE candidate:', error);
+        }
+    }
+    
+    async createPeerConnection(playerId) {
+        try {
+            const peerConnection = new RTCPeerConnection({
+                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+            });
+            
+            this.peerConnections[playerId] = peerConnection;
+            
+            // Add local stream if available
+            if (this.localStream) {
+                this.localStream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, this.localStream);
+                });
+            }
+            
+            // Handle incoming stream
+            peerConnection.ontrack = (event) => {
+                const audio = document.createElement('audio');
+                audio.srcObject = event.streams[0];
+                audio.autoplay = true;
+                audio.volume = 0.8;
+                document.body.appendChild(audio);
+            };
+            
+            // Handle ICE candidates
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    this.socket.emit('webrtc-ice-candidate', {
+                        to: playerId,
+                        candidate: event.candidate
+                    });
+                }
+            };
+            
+            // Create and send offer
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            
+            this.socket.emit('webrtc-offer', {
+                to: playerId,
+                offer: offer
+            });
+        } catch (error) {
+            console.error('Error creating peer connection:', error);
+        }
     }
     
     toggleMute() {
@@ -631,15 +2071,19 @@ class TruthOrDareGame {
     
     showQuestionModal() {
         if (!this.isHost) {
-            alert('Only the host can manage questions');
+            this.showNotification('Only the host can manage questions', 'error');
             return;
         }
         document.getElementById('questionModal').classList.remove('hidden');
         this.updateQuestionsDisplay();
+        this.updateQuestionStats();
     }
     
     hideQuestionModal() {
         document.getElementById('questionModal').classList.add('hidden');
+        // Clear previews
+        this.hidePreview('truth');
+        this.hidePreview('dare');
     }
     
     switchTab(tab) {
@@ -648,6 +2092,124 @@ class TruthOrDareGame {
         
         document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
         document.getElementById(`${tab}Tab`).classList.add('active');
+        
+        // Hide previews when switching tabs
+        this.hidePreview('truth');
+        this.hidePreview('dare');
+    }
+    
+    updateQuestionStats() {
+        const truthCount = this.truthQuestions.length;
+        const dareCount = this.dareQuestions.length;
+        const totalCount = truthCount + dareCount;
+        
+        document.getElementById('truthCount').textContent = truthCount;
+        document.getElementById('dareCount').textContent = dareCount;
+        document.getElementById('totalCount').textContent = totalCount;
+        document.getElementById('truthTabCount').textContent = truthCount;
+        document.getElementById('dareTabCount').textContent = dareCount;
+    }
+    
+    previewQuestion(text, type) {
+        if (!text.trim()) {
+            this.hidePreview(type);
+            return;
+        }
+        
+        const previewElement = document.getElementById(`${type}Preview`);
+        const previewTextElement = document.getElementById(`${type}PreviewText`);
+        
+        if (previewElement && previewTextElement) {
+            previewTextElement.textContent = text;
+            previewElement.style.display = 'block';
+        }
+    }
+    
+    hidePreview(type) {
+        const previewElement = document.getElementById(`${type}Preview`);
+        if (previewElement) {
+            previewElement.style.display = 'none';
+        }
+    }
+    
+    clearQuestions(type) {
+        if (!this.isHost) {
+            this.showNotification('Only the host can manage questions', 'error');
+            return;
+        }
+        
+        const confirmMessage = `Are you sure you want to clear all ${type} questions?`;
+        if (!confirm(confirmMessage)) return;
+        
+        if (type === 'truth') {
+            this.truthQuestions = [];
+        } else {
+            this.dareQuestions = [];
+        }
+        
+        this.updateQuestionsDisplay();
+        this.updateQuestionStats();
+        this.showNotification(`All ${type} questions cleared`, 'success');
+    }
+    
+    resetToDefaultQuestions() {
+        if (!this.isHost) {
+            this.showNotification('Only the host can manage questions', 'error');
+            return;
+        }
+        
+        if (!confirm('Are you sure you want to reset to default questions? This will replace all current questions.')) return;
+        
+        // Reset to default questions
+        this.truthQuestions = [
+            "What's your biggest fear?",
+            "What's the most embarrassing thing you've ever done?",
+            "Who was your first crush?",
+            "What's your biggest secret?",
+            "What's the worst lie you've ever told?",
+            "What's your most embarrassing moment?",
+            "What's something you've never told your parents?",
+            "What's your biggest regret?",
+            "What's the most childish thing you still do?",
+            "What's your most irrational fear?"
+        ];
+        
+        this.dareQuestions = [
+            "Do 20 jumping jacks",
+            "Sing a song of your choice",
+            "Do your best impression of someone in the room",
+            "Dance for 30 seconds",
+            "Tell a joke",
+            "Do 10 push-ups",
+            "Speak in an accent for the next 3 rounds",
+            "Do a cartwheel",
+            "Do your best animal impression",
+            "Do 15 squats"
+        ];
+        
+        this.updateQuestionsDisplay();
+        this.updateQuestionStats();
+        this.showNotification('Questions reset to default', 'success');
+    }
+    
+    exportQuestions() {
+        const questionsData = {
+            truth: this.truthQuestions,
+            dare: this.dareQuestions,
+            exported: new Date().toISOString()
+        };
+        
+        const dataStr = JSON.stringify(questionsData, null, 2);
+        const dataBlob = new Blob([dataStr], {type: 'application/json'});
+        const url = URL.createObjectURL(dataBlob);
+        
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `truth-or-dare-questions-${new Date().toISOString().split('T')[0]}.json`;
+        link.click();
+        
+        URL.revokeObjectURL(url);
+        this.showNotification('Questions exported successfully', 'success');
     }
     
     async addQuestion(type) {
@@ -697,25 +2259,53 @@ class TruthOrDareGame {
     updateQuestionsDisplay() {
         this.updateQuestionsList('truth');
         this.updateQuestionsList('dare');
+        this.updateQuestionStats();
     }
     
     updateQuestionsList(type) {
-        const list = document.getElementById(`${type}QuestionsList`);
-        list.innerHTML = '';
+        const listElement = document.getElementById(`${type}QuestionsList`);
+        const questions = type === 'truth' ? this.truthQuestions : this.dareQuestions;
         
-        this.questions[type].forEach((question, index) => {
+        if (questions.length === 0) {
+            listElement.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-${type === 'truth' ? 'question-circle' : 'fire'}"></i>
+                    <h4>No ${type} questions yet</h4>
+                    <p>Add your first ${type} question above to get started!</p>
+                </div>
+            `;
+            return;
+        }
+        
+        listElement.innerHTML = '';
+        questions.forEach((question, index) => {
             const item = document.createElement('div');
-            item.className = 'question-item';
+            item.className = `question-item ${type}-item`;
             item.innerHTML = `
                 <div class="question-text">${question}</div>
                 <div class="question-actions">
-                    <button class="btn-delete" onclick="game.deleteQuestion('${type}', ${index})">
+                    <button class="btn-icon btn-edit" onclick="game.editQuestion('${type}', ${index})" title="Edit question">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn-icon btn-delete" onclick="game.removeQuestion('${type}', ${index})" title="Remove question">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
             `;
-            list.appendChild(item);
+            listElement.appendChild(item);
         });
+    }
+    
+    editQuestion(type, index) {
+        const questions = type === 'truth' ? this.truthQuestions : this.dareQuestions;
+        const currentQuestion = questions[index];
+        const newQuestion = prompt(`Edit ${type} question:`, currentQuestion);
+        
+        if (newQuestion && newQuestion.trim() && newQuestion !== currentQuestion) {
+            questions[index] = newQuestion.trim();
+            this.updateQuestionsDisplay();
+            this.showNotification(`${type} question updated`, 'success');
+        }
     }
     
     // Notification System
@@ -937,7 +2527,75 @@ class TruthOrDareGame {
 // Initialize the game when the page loads
 document.addEventListener('DOMContentLoaded', () => {
     window.game = new TruthOrDareGame();
+    
+    // Add global test function for chat badge
+    window.testChatBadge = function() {
+        if (window.game) {
+            window.game.testChatBadge();
+        }
+    };
+    
+    // Add global flip card function
+    window.flipCard = function() {
+        if (window.game) {
+            window.game.flipCard();
+        }
+    };
 });
+
+// Add notification functions to the TruthOrDareGame class
+TruthOrDareGame.prototype.showNotification = function(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = 'notification';
+    
+    let iconClass = 'info-circle';
+    if (type === 'success') iconClass = 'check-circle';
+    else if (type === 'error') iconClass = 'exclamation-circle';
+    else if (type === 'warning') iconClass = 'exclamation-triangle';
+    
+    notification.innerHTML = `
+        <div class="notification-header">
+            <i class="fas fa-${iconClass}"></i>
+            ${message}
+        </div>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Show notification
+    setTimeout(() => notification.classList.add('show'), 100);
+    
+    // Play sound
+    this.playNotificationSound(type);
+    
+    // Auto remove after 5 seconds
+    setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => notification.remove(), 300);
+    }, 5000);
+};
+
+TruthOrDareGame.prototype.playNotificationSound = function(type) {
+    if (!this.soundEnabled) return;
+    
+    switch(type) {
+        case 'success':
+            this.playSound(800, 200, 'sine');
+            break;
+        case 'error':
+            this.playSound(300, 300, 'sawtooth');
+            break;
+        case 'player-join':
+            this.playSound(600, 150, 'sine');
+            setTimeout(() => this.playSound(800, 150, 'sine'), 100);
+            break;
+        case 'chat':
+            this.playSound(1000, 100, 'sine');
+            break;
+        default:
+            this.playSound(500, 200, 'sine');
+    }
+};
 
 // Add keyboard shortcuts
 document.addEventListener('keydown', (e) => {

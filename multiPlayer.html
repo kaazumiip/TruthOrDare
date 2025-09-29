@@ -3,29 +3,2199 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Truth or Dare - Multiplayer</title>
-    <link rel="stylesheet" href="styles.css">
+    <title>Chok Hmong - Multiplayer Edition</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@300;400;500;600;700&family=Comic+Neue:wght@300;400;700&display=swap');
+        
+        body {
+            font-family: 'Fredoka', 'Comic Neue', cursive, sans-serif;
+            background: linear-gradient(135deg, #E6D3B7 0%, #F0E6D2 50%, #D2B48C 100%);
+            background-attachment: fixed;
+            overflow-x: hidden;
+        }
+        
+        .modern-button {
+            border-radius: 50px;
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            box-shadow: 0 8px 20px 0 rgba(0, 0, 0, 0.15);
+            backdrop-filter: blur(15px);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            font-weight: 600;
+            letter-spacing: 0.025em;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .modern-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            transition: left 0.5s;
+        }
+        
+        .modern-button:hover::before {
+            left: 100%;
+        }
+        
+        .modern-button:hover {
+            transform: translateY(-4px) scale(1.05);
+            box-shadow: 0 12px 30px 0 rgba(0, 0, 0, 0.2);
+        }
+        
+        .modern-button:active {
+            transform: translateY(-2px) scale(1.02);
+        }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(20px);
+            border: 3px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 15px 35px 0 rgba(0, 0, 0, 0.1);
+            border-radius: 30px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .glass-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+            animation: float 6s ease-in-out infinite;
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-10px) rotate(180deg); }
+        }
+        
+        /* Bubble decorations */
+        .bubble {
+            position: absolute;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            animation: bubble-float 8s infinite ease-in-out;
+        }
+        
+        .bubble:nth-child(1) { width: 60px; height: 60px; top: 10%; left: 10%; animation-delay: 0s; }
+        .bubble:nth-child(2) { width: 40px; height: 40px; top: 20%; right: 15%; animation-delay: 2s; }
+        .bubble:nth-child(3) { width: 80px; height: 80px; bottom: 20%; left: 20%; animation-delay: 4s; }
+        .bubble:nth-child(4) { width: 50px; height: 50px; bottom: 30%; right: 25%; animation-delay: 6s; }
+        
+        @keyframes bubble-float {
+            0%, 100% { transform: translateY(0px) scale(1); }
+            50% { transform: translateY(-20px) scale(1.1); }
+        }
+        
+        /* Cute character styles */
+        .bubble-character {
+            position: absolute;
+            font-size: 2rem;
+            animation: bounce 2s infinite;
+        }
+        
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .logo {
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .logo-image {
+            max-width: 450px;
+            width: 100%;
+            height: auto;
+            transition: all 0.4s ease;
+            background: transparent;
+        }
+        
+        .logo-image:hover {
+            transform: scale(1.08);
+        }
+        
+        .logo-container {
+            background: transparent;
+            border-radius: 30px;
+            padding: 2rem;
+        }
+        
+        .floating {
+            animation: float 6s ease-in-out infinite;
+        }
+        
+        .page {
+            display: none;
+        }
+        .page.active {
+            display: block;
+        }
+        
+        /* Game Room Styling */
+        .game-header {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(20px);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 20px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        .room-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .room-code-display {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: white;
+            background: rgba(220, 38, 38, 0.8);
+            padding: 0.5rem 1rem;
+            border-radius: 25px;
+            text-align: center;
+        }
+        
+        .players-count {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #333;
+            font-weight: 600;
+        }
+        
+        .game-controls {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #DC2626, #991B1B);
+            color: white;
+            box-shadow: 0 4px 15px rgba(220, 38, 38, 0.4);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(220, 38, 38, 0.6);
+        }
+        
+        .btn-questions {
+            background: linear-gradient(135deg, #D97706, #92400E);
+            color: white;
+            box-shadow: 0 4px 15px rgba(217, 119, 6, 0.4);
+        }
+        
+        .btn-voice {
+            background: linear-gradient(135deg, #059669, #047857);
+            color: white;
+            box-shadow: 0 4px 15px rgba(5, 150, 105, 0.4);
+        }
+        
+        .btn-chat {
+            background: linear-gradient(135deg, #7C3AED, #5B21B6);
+            color: white;
+            box-shadow: 0 4px 15px rgba(124, 58, 237, 0.4);
+            position: relative;
+        }
+        
+        .btn-truth {
+            background: linear-gradient(135deg, #DC2626, #991B1B);
+            color: white;
+            box-shadow: 0 4px 15px rgba(220, 38, 38, 0.4);
+            font-size: 1.1rem;
+            padding: 1rem 2rem;
+        }
+        
+        .btn-dare {
+            background: linear-gradient(135deg, #D97706, #92400E);
+            color: white;
+            box-shadow: 0 4px 15px rgba(217, 119, 6, 0.4);
+            font-size: 1.1rem;
+            padding: 1rem 2rem;
+        }
+        
+        .btn-next {
+            background: linear-gradient(135deg, #059669, #047857);
+            color: white;
+            box-shadow: 0 4px 15px rgba(5, 150, 105, 0.4);
+            font-size: 1.1rem;
+            padding: 1rem 2rem;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .game-content {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(20px);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 25px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .current-player {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        .current-player h3 {
+            color: #333;
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+        }
+        
+        .card-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 2rem;
+        }
+        
+        .card {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(252, 250, 245, 0.9));
+            border-radius: 20px;
+            padding: 2rem;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            border: 3px solid rgba(237, 231, 220, 0.4);
+        }
+        
+        .card-header {
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+        
+        .card-type {
+            background: linear-gradient(135deg, #DC2626, #991B1B);
+            color: white;
+            padding: 0.5rem 1.5rem;
+            border-radius: 25px;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        
+        .card-content {
+            text-align: center;
+        }
+        
+        .card-content p {
+            font-size: 1.2rem;
+            line-height: 1.6;
+            color: #333;
+            font-weight: 500;
+        }
+        
+        .game-actions {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+        
+        .next-player-section {
+            text-align: center;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        .chat-panel, .voice-panel {
+            position: fixed;
+            right: 2rem;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 300px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+        }
+        
+        .chat-header, .voice-header {
+            background: linear-gradient(135deg, #DC2626, #991B1B);
+            color: white;
+            padding: 1rem;
+            border-radius: 15px 15px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .chat-messages {
+            height: 200px;
+            overflow-y: auto;
+            padding: 1rem;
+        }
+        
+        .chat-input {
+            display: flex;
+            padding: 1rem;
+            border-top: 1px solid #eee;
+        }
+        
+        .chat-input input {
+            flex: 1;
+            padding: 0.5rem;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            margin-right: 0.5rem;
+        }
+        
+        .btn-small {
+            padding: 0.5rem;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* Enhanced Game Room Styling */
+        .game-room-container {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(25px);
+            border-radius: 20px;
+            padding: 0;
+            margin: 1rem auto;
+            max-width: 1200px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        
+        .game-room-header {
+            background: linear-gradient(135deg, #DC2626, #991B1B);
+            padding: 1.5rem 2rem;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        
+        .room-info-section {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+        
+        .room-code-badge {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 1.1rem;
+            backdrop-filter: blur(10px);
+        }
+        
+        .players-count-badge {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            backdrop-filter: blur(10px);
+        }
+        
+        .game-controls-section {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        
+        /* Discord-like Player List */
+        .players-sidebar {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(20px);
+            border-radius: 15px;
+            padding: 1rem;
+            margin: 1rem;
+            min-width: 250px;
+            max-width: 300px;
+        }
+        
+        .players-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            color: #333;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        
+        .players-header i {
+            color: #DC2626;
+        }
+        
+        .player-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            margin: 0.25rem 0;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+        
+        .player-item:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateX(5px);
+        }
+        
+        .player-item.host {
+            background: linear-gradient(135deg, rgba(220, 38, 38, 0.2), rgba(153, 27, 27, 0.2));
+            border: 1px solid rgba(220, 38, 38, 0.3);
+        }
+        
+        .player-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #DC2626, #991B1B);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2rem;
+            position: relative;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .player-avatar.host {
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            color: #000;
+        }
+        
+        .player-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+        
+        .player-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 1rem;
+        }
+        
+        .player-status {
+            font-size: 0.8rem;
+            color: #666;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10B981;
+        }
+        
+        .status-indicator.speaking {
+            background: #3B82F6;
+            animation: pulse 1.5s infinite;
+        }
+        
+        .status-indicator.muted {
+            background: #EF4444;
+        }
+        
+        .status-indicator.away {
+            background: #F59E0B;
+        }
+        
+        .host-crown {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #FFD700;
+            color: #000;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            border: 2px solid white;
+        }
+        
+        .voice-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #10B981;
+            animation: pulse 2s infinite;
+        }
+        
+        .voice-indicator.muted {
+            background: #EF4444;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        /* Notification Styles */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #DC2626, #991B1B);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+            max-width: 300px;
+        }
+        
+        .notification.show {
+            transform: translateX(0);
+        }
+        
+        .notification-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            font-weight: bold;
+        }
+        
+        .notification-body {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        
+        .notification.warning {
+            background: linear-gradient(135deg, #ffc107, #ffb300);
+            border-left: 4px solid #ffc107;
+            color: #856404;
+        }
+        
+        /* Chat Unread Indicators */
+        .has-unread {
+            position: relative;
+            animation: pulse 1.5s infinite;
+        }
+        
+        .unread-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background: #ff4757;
+            color: white;
+            border-radius: 50%;
+            min-width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: bold;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        /* Chat button unread state */
+        #chatToggleBtn.has-unread {
+            background: linear-gradient(45deg, #ff4757, #ff3742) !important;
+            box-shadow: 0 0 10px rgba(255, 71, 87, 0.5);
+            animation: pulse 1.5s infinite;
+        }
+        
+        /* Unread badge styles */
+        .unread-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #ff4757;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            animation: pulse 1s infinite;
+            border: 2px solid white;
+            box-shadow: 0 2px 8px rgba(255, 71, 87, 0.4);
+        }
+        
+        /* Enhanced pulse animation for unread indicator */
+        @keyframes pulse {
+            0% { 
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(255, 71, 87, 0.7);
+            }
+            50% { 
+                transform: scale(1.1);
+                box-shadow: 0 0 0 8px rgba(255, 71, 87, 0);
+            }
+            100% { 
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(255, 71, 87, 0);
+            }
+        }
+        
+        /* Enhanced Question Management Modal */
+        .question-modal-content {
+            max-width: 900px;
+            width: 95%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+        
+        .modal-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .modal-title i {
+            color: #ff6b6b;
+            font-size: 1.2rem;
+        }
+        
+        .modal-title h3 {
+            margin: 0;
+            color: #2c3e50;
+            font-weight: 600;
+        }
+        
+        /* Question Stats */
+        .question-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+            padding: 20px;
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 15px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 15px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transition: transform 0.2s ease;
+        }
+        
+        .stat-item:hover {
+            transform: translateY(-2px);
+        }
+        
+        .stat-item i {
+            font-size: 1.5rem;
+            margin-bottom: 8px;
+        }
+        
+        .stat-item i.fa-question-circle {
+            color: #3498db;
+        }
+        
+        .stat-item i.fa-fire {
+            color: #e74c3c;
+        }
+        
+        .stat-item i.fa-list {
+            color: #2ecc71;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: #6c757d;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        /* Enhanced Tabs */
+        .question-tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 25px;
+            background: #f8f9fa;
+            padding: 5px;
+            border-radius: 10px;
+        }
+        
+        .tab-btn {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 12px 20px;
+            background: transparent;
+            border: none;
+            border-radius: 8px;
+            color: #6c757d;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .tab-btn:hover {
+            background: rgba(255, 107, 107, 0.1);
+            color: #ff6b6b;
+        }
+        
+        .tab-btn.active {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+            box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+        }
+        
+        .tab-count {
+            background: rgba(255, 255, 255, 0.2);
+            color: inherit;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            min-width: 20px;
+            text-align: center;
+        }
+        
+        .tab-btn.active .tab-count {
+            background: rgba(255, 255, 255, 0.3);
+        }
+        
+        /* Tab Content */
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Add Question Section */
+        .add-question-section {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .add-question-header h4 {
+            margin: 0 0 20px 0;
+            color: #2c3e50;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .add-question-header i {
+            color: #ff6b6b;
+        }
+        
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .input-group input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .input-group input:focus {
+            outline: none;
+            border-color: #ff6b6b;
+            box-shadow: 0 0 0 3px rgba(255, 107, 107, 0.1);
+        }
+        
+        .input-group button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+        }
+        
+        /* Question Preview */
+        .question-preview {
+            margin-top: 15px;
+            animation: slideDown 0.3s ease;
+        }
+        
+        .preview-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            overflow: hidden;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+        
+        .preview-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        }
+        
+        .truth-card {
+            border-color: #3498db;
+        }
+        
+        .dare-card {
+            border-color: #e74c3c;
+        }
+        
+        .card-header {
+            padding: 12px 16px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .truth-card .card-header {
+            background: linear-gradient(45deg, #3498db, #2980b9);
+            color: white;
+        }
+        
+        .dare-card .card-header {
+            background: linear-gradient(45deg, #e74c3c, #c0392b);
+            color: white;
+        }
+        
+        .card-content {
+            padding: 16px;
+            color: #2c3e50;
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+        
+        /* Questions Section */
+        .questions-section {
+            background: white;
+            border-radius: 15px;
+            border: 1px solid #dee2e6;
+            overflow: hidden;
+        }
+        
+        .questions-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 25px;
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .questions-header h4 {
+            margin: 0;
+            color: #2c3e50;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .questions-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn-small {
+            padding: 8px 16px;
+            font-size: 0.9rem;
+        }
+        
+        .btn-danger {
+            background: linear-gradient(45deg, #e74c3c, #c0392b);
+            color: white;
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(45deg, #6c757d, #5a6268);
+            color: white;
+        }
+        
+        .btn-warning {
+            background: linear-gradient(45deg, #f39c12, #e67e22);
+            color: white;
+        }
+        
+        .btn-info {
+            background: linear-gradient(45deg, #17a2b8, #138496);
+            color: white;
+        }
+        
+        /* Questions List */
+        .questions-list {
+            max-height: 300px;
+            overflow-y: auto;
+            padding: 15px;
+        }
+        
+        .question-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            margin-bottom: 8px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #dee2e6;
+            transition: all 0.3s ease;
+        }
+        
+        .question-item:hover {
+            background: #e9ecef;
+            transform: translateX(5px);
+        }
+        
+        .question-item.truth-item {
+            border-left-color: #3498db;
+        }
+        
+        .question-item.dare-item {
+            border-left-color: #e74c3c;
+        }
+        
+        .question-text {
+            flex: 1;
+            color: #2c3e50;
+            font-size: 0.95rem;
+            line-height: 1.4;
+        }
+        
+        .question-actions {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .btn-icon {
+            width: 32px;
+            height: 32px;
+            border: none;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-edit {
+            background: #3498db;
+            color: white;
+        }
+        
+        .btn-edit:hover {
+            background: #2980b9;
+            transform: scale(1.1);
+        }
+        
+        .btn-delete {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .btn-delete:hover {
+            background: #c0392b;
+            transform: scale(1.1);
+        }
+        
+        /* Modal Footer */
+        .modal-footer {
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            border-top: 1px solid #dee2e6;
+            padding: 20px 25px;
+        }
+        
+        .modal-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        
+        .modal-actions .btn {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .modal-actions .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+        
+        /* Animations */
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6c757d;
+        }
+        
+        .empty-state i {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            opacity: 0.5;
+        }
+        
+        .empty-state h4 {
+            margin: 0 0 10px 0;
+            color: #495057;
+        }
+        
+        .empty-state p {
+            margin: 0;
+            font-size: 0.9rem;
+        }
+        
+        /* Language Toggle Button */
+        
+        /* Language Toggle Container */
+        .language-toggle-container {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        
+        .language-toggle {
+            background: linear-gradient(135deg, #DC2626, #991B1B);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            padding: 10px 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 15px rgba(220, 38, 38, 0.3);
+            position: relative;
+            z-index: 10;
+        }
+        
+        .language-toggle:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(220, 38, 38, 0.4);
+        }
+        
+        .language-toggle i {
+            font-size: 1rem;
+        }
+        
+        /* Enhanced Room Entry Page */
+        .room-entry-container {
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(25px);
+            border-radius: 20px;
+            padding: 2rem;
+            margin: 2rem auto;
+            max-width: 500px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+        
+        .room-entry-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        .room-entry-header h2 {
+            color: #333;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .room-entry-header p {
+            color: #666;
+            font-size: 1.1rem;
+        }
+        
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #333;
+            font-weight: 600;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 1rem;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #333;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .form-input:focus {
+            outline: none;
+            border-color: #DC2626;
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+        }
+        
+        .form-input::placeholder {
+            color: #999;
+        }
+        
+        .btn-submit {
+            width: 100%;
+            padding: 1rem;
+            background: linear-gradient(135deg, #DC2626, #991B1B);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(220, 38, 38, 0.4);
+        }
+        
+        .btn-submit:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(220, 38, 38, 0.6);
+        }
+        
+        .btn-submit:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Truth or Dare Card Styling */
+        .game-card-container {
+            display: flex;
+            justify-content: center;
+            margin: 2rem 0;
+        }
+        
+        .game-card {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(252, 250, 245, 0.9));
+            border-radius: 20px;
+            padding: 2rem;
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+            border: 3px solid rgba(237, 231, 220, 0.5);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            transform-style: preserve-3d;
+            perspective: 1000px;
+        }
+        
+        .game-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.2);
+        }
+        
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .card-type-badge {
+            background: linear-gradient(135deg, #DC2626, #991B1B);
+            color: white;
+            padding: 0.5rem 1.5rem;
+            border-radius: 25px;
+            font-weight: bold;
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .card-type-badge.dare {
+            background: linear-gradient(135deg, #D97706, #92400E);
+        }
+        
+        .card-player {
+            color: #666;
+            font-size: 1rem;
+            font-weight: 500;
+        }
+        
+        .card-content {
+            text-align: center;
+            margin: 2rem 0;
+        }
+        
+        .card-question {
+            font-size: 1.3rem;
+            line-height: 1.6;
+            color: #333;
+            font-weight: 500;
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .card-footer {
+            text-align: center;
+            margin-top: 1.5rem;
+        }
+        
+        .card-instructions {
+            color: #666;
+            font-size: 0.9rem;
+            font-style: italic;
+        }
+        
+        /* Challenge Selection Styling */
+        .challenge-selection {
+            text-align: center;
+            margin: 2rem 0;
+        }
+        
+        .challenge-selection h3 {
+            color: #333;
+            font-size: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .challenge-buttons {
+            display: flex;
+            gap: 1.5rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .challenge-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 15px;
+            padding: 1.5rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 200px;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            backdrop-filter: blur(10px);
+        }
+        
+        .challenge-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+        
+        .challenge-btn.truth-btn:hover {
+            background: linear-gradient(135deg, rgba(220, 38, 38, 0.1), rgba(153, 27, 27, 0.1));
+            border-color: #DC2626;
+        }
+        
+        .challenge-btn.dare-btn:hover {
+            background: linear-gradient(135deg, rgba(217, 119, 6, 0.1), rgba(146, 64, 14, 0.1));
+            border-color: #D97706;
+        }
+        
+        .btn-icon {
+            font-size: 2rem;
+        }
+        
+        .btn-text {
+            text-align: left;
+        }
+        
+        .btn-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 0.25rem;
+        }
+        
+        .btn-subtitle {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        /* Card Flip Animation */
+        .game-card.flipping {
+            animation: cardFlip 0.6s ease-in-out;
+        }
+        
+        .game-card.flipped {
+            transform: rotateY(180deg);
+        }
+        
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            text-align: center;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+            min-height: 300px;
+        }
+        
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-radius: 20px;
+            padding: 2rem;
+            top: 0;
+            left: 0;
+        }
+        
+        .card-front {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(252, 250, 245, 0.9));
+            color: #333;
+        }
+        
+        .card-back {
+            transform: rotateY(180deg);
+            background: linear-gradient(135deg, #dc2626, #991b1b);
+            color: white;
+        }
+        
+        .card-back.dare {
+            background: linear-gradient(135deg, #d97706, #92400e);
+        }
+        
+        .card-back .card-header,
+        .card-back .card-content,
+        .card-back .card-footer {
+            color: white;
+        }
+        
+        .card-back .card-type-badge {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+        }
+        
+        .card-click-hint {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: rgba(0, 0, 0, 0.1);
+            color: #666;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            opacity: 0.7;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes cardFlip {
+            0% { transform: rotateY(0deg); }
+            50% { transform: rotateY(90deg); }
+            100% { transform: rotateY(0deg); }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 0.7; }
+            50% { opacity: 1; }
+        }
+        
+        /* Enhanced Room Entry Styling */
+        .form-step {
+            transition: all 0.3s ease;
+        }
+        
+        .room-success {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(5, 150, 105, 0.1));
+            border-radius: 15px;
+            border: 2px solid rgba(16, 185, 129, 0.3);
+        }
+        
+        .success-icon {
+            font-size: 3rem;
+            color: #10B981;
+            margin-bottom: 1rem;
+        }
+        
+        .room-success h3 {
+            color: #333;
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .room-success p {
+            color: #666;
+            font-size: 1rem;
+        }
+        
+        .room-code-section {
+            margin: 2rem 0;
+        }
+        
+        .room-code-display {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin: 1rem 0;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 15px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .room-code {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #DC2626;
+            letter-spacing: 0.2em;
+            flex: 1;
+            text-align: center;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 0.5rem 1rem;
+            border-radius: 10px;
+            border: 2px solid #DC2626;
+        }
+        
+        .copy-btn {
+            background: linear-gradient(135deg, #DC2626, #991B1B);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+        
+        .copy-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(220, 38, 38, 0.4);
+        }
+        
+        .room-share {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 1rem;
+        }
+        
+        .btn-share {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: #333;
+            padding: 0.75rem 1.5rem;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+        
+        .btn-share:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        .players-waiting {
+            margin: 2rem 0;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+        }
+        
+        .players-waiting h4 {
+            color: #333;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .players-list-mini {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .player-item-mini {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.75rem;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            color: #333;
+        }
+        
+        .player-avatar-mini {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #DC2626, #991B1B);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+        
+        .game-actions {
+            text-align: center;
+            margin: 2rem 0;
+        }
+        
+        .btn-start-game {
+            background: linear-gradient(135deg, #10B981, #047857);
+            color: white;
+            border: none;
+            border-radius: 15px;
+            padding: 1rem 2rem;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+        }
+        
+        .btn-start-game:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.6);
+        }
+        
+        .btn-start-game:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .back-button {
+            text-align: center;
+            margin-top: 2rem;
+        }
+        
+        .btn-back {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: #333;
+            padding: 0.75rem 1.5rem;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+        
+        .btn-back:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        /* Share and QR Code Modal Styling */
+        .share-modal, .qr-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .share-modal-content, .qr-modal-content {
+            background: linear-gradient(135deg, #F5F5DC, #E8D5B7);
+            border-radius: 20px;
+            padding: 2rem;
+            max-width: 500px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            border: 2px solid rgba(220, 38, 38, 0.3);
+        }
+        
+        .share-modal-content h3, .qr-modal-content h3 {
+            color: #333;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+        }
+        
+        .share-options {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin: 1.5rem 0;
+        }
+        
+        .btn-share-option {
+            background: linear-gradient(135deg, #DC2626, #991B1B);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 1rem;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-share-option:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(220, 38, 38, 0.4);
+        }
+        
+        .qr-container {
+            margin: 1.5rem 0;
+            display: flex;
+            justify-content: center;
+        }
+        
+        .qr-container canvas {
+            border: 3px solid #DC2626;
+            border-radius: 10px;
+            background: white;
+        }
+        
+        .qr-room-code {
+            color: #333;
+            font-size: 1.1rem;
+            margin: 1rem 0;
+        }
+        
+        .qr-url {
+            color: #666;
+            font-size: 0.9rem;
+            margin: 0.5rem 0;
+            word-break: break-all;
+        }
+        
+        .qr-url code {
+            background: rgba(0, 0, 0, 0.1);
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        
+        .qr-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 1.5rem;
+        }
+        
+        .btn-download {
+            background: linear-gradient(135deg, #10B981, #047857);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 0.75rem 1.5rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .btn-download:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+        }
+        
+        .btn-close {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: #333;
+            border-radius: 10px;
+            padding: 0.75rem 1.5rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-close:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        /* QR Scanner Styles */
+        .qr-scanner-container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .qr-scanner-box {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        }
+        
+        .qr-scanner-header {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+        
+        .qr-scanner-header h3 {
+            color: #333;
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        .qr-scanner-header p {
+            color: #666;
+            font-size: 1rem;
+        }
+        
+        .qr-scanner-area {
+            background: #f8f9fa;
+            border: 2px dashed #dee2e6;
+            border-radius: 15px;
+            padding: 2rem;
+            text-align: center;
+            margin-bottom: 1.5rem;
+            min-height: 200px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        
+        .qr-scanner-area.drag-over {
+            border-color: #007bff;
+            background: #e3f2fd;
+            transform: scale(1.02);
+        }
+        
+        .qr-drop-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 123, 255, 0.1);
+            border: 2px dashed #007bff;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+        
+        .qr-drop-content {
+            text-align: center;
+            color: #007bff;
+        }
+        
+        .qr-drop-content i {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            display: block;
+        }
+        
+        .qr-drop-content p {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin: 0;
+        }
+        
+        .qr-scanner-placeholder {
+            text-align: center;
+        }
+        
+        .qr-scanner-icon {
+            font-size: 3rem;
+            color: #6c757d;
+            margin-bottom: 1rem;
+        }
+        
+        .qr-scanner-text {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 0.5rem;
+        }
+        
+        .qr-scanner-subtext {
+            font-size: 0.9rem;
+            color: #6c757d;
+        }
+        
+        .qr-scanner-actions {
+            text-align: center;
+        }
+        
+        .qr-manual-entry {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 15px;
+            padding: 1.5rem;
+        }
+        
+        .divider {
+            text-align: center;
+            margin: 1.5rem 0;
+            position: relative;
+        }
+        
+        .divider::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: #dee2e6;
+        }
+        
+        .divider span {
+            background: #f8f9fa;
+            padding: 0 1rem;
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+        
+        .game-status {
+            text-align: center;
+            margin: 1rem 0;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 15px;
+            color: #333;
+        }
+        
+        .game-status h3 {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+            color: #333;
+        }
+        
+        .game-status p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+            color: #333;
+        }
+        
+        .question-display {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.7));
+            border-radius: 20px;
+            padding: 2rem;
+            margin: 1rem 0;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        .question-display h4 {
+            color: #DC2626;
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            font-weight: bold;
+        }
+        
+        .question-display p {
+            color: #000;
+            font-size: 1.1rem;
+            line-height: 1.6;
+            font-weight: 500;
+        }
+        
+        .action-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin: 2rem 0;
+            flex-wrap: wrap;
+        }
+        
+        .btn-action {
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 25px;
+            font-weight: bold;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            min-width: 150px;
+            justify-content: center;
+        }
+        
+        .btn-action:hover {
+            transform: translateY(-2px);
+        }
+        
+        .btn-action:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .btn-truth-action {
+            background: linear-gradient(135deg, #DC2626, #991B1B);
+            color: white;
+            box-shadow: 0 4px 15px rgba(220, 38, 38, 0.4);
+        }
+        
+        .btn-dare-action {
+            background: linear-gradient(135deg, #D97706, #92400E);
+            color: white;
+            box-shadow: 0 4px 15px rgba(217, 119, 6, 0.4);
+        }
+        
+        .btn-next-action {
+            background: linear-gradient(135deg, #059669, #047857);
+            color: white;
+            box-shadow: 0 4px 15px rgba(5, 150, 105, 0.4);
+        }
+        
+        @media (max-width: 768px) {
+            .game-header {
+                flex-direction: column;
+                text-align: center;
+            }
+            
+            .game-controls {
+                justify-content: center;
+            }
+            
+            .chat-panel, .voice-panel {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                width: 100%;
+                transform: none;
+                border-radius: 0;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .btn-action {
+                width: 100%;
+                max-width: 300px;
+            }
+        }
+    </style>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
-<body>
-    <div class="container">
+<body class="min-h-screen">
+    <div class="container mx-auto px-4 py-8">
         <!-- Landing Page -->
-        <div id="landingPage" class="page active">
-            <div class="landing-content">
-                <h1 class="game-title">
-                    <i class="fas fa-gamepad"></i>
-                    Truth or Dare
-                </h1>
-                <p class="game-subtitle">Multiplayer Edition</p>
+        <div id="landingPage" class="page active relative">
+            <!-- Bubble decorations -->
+            <div class="bubble"></div>
+            <div class="bubble"></div>
+            <div class="bubble"></div>
+            <div class="bubble"></div>
+            
+            <!-- Cute bubble characters -->
+            <div class="bubble-character" style="top: 15%; left: 5%;">🎮</div>
+            <div class="bubble-character" style="top: 25%; right: 8%;">🎯</div>
+            <div class="bubble-character" style="bottom: 20%; left: 8%;">🎲</div>
+            <div class="bubble-character" style="bottom: 30%; right: 12%;">🎪</div>
+            
+            <div class="landing-content text-center">
+                <div class="floating mb-12">
+                    <div class="logo-container inline-block mb-8">
+                        <div class="logo">
+                            <img src="jokHmorng-logo.png" alt="Chok Hmong Logo" class="logo-image">
+                        </div>
+                        <p class="text-lg text-white font-medium mt-4">Multiplayer Edition</p>
+                    </div>
+                    
+                    <!-- Language Toggle Button -->
+                    <div class="language-toggle-container">
+                        <button id="languageToggle" class="language-toggle">
+                            <i class="fas fa-language"></i>
+                            <span id="languageText">ខ្មែរ</span>
+                        </button>
+                    </div>
+                </div>
                 
-                <div class="action-buttons">
-                    <button id="createRoomBtn" class="btn btn-primary">
-                        <i class="fas fa-plus"></i>
-                        Create Room
+                <p class="text-xl text-white max-w-3xl mx-auto leading-relaxed mb-16 font-medium">
+                    Get ready for deep questions that will "chok" you! Challenge yourself and your friends with thought-provoking cards that spark conversation and fun moments.
+                </p>
+                
+                <div class="grid md:grid-cols-2 gap-8 max-w-2xl mx-auto">
+                    <button id="createRoomBtn" class="modern-button bg-gradient-to-r from-red-600 to-red-800 text-white px-10 py-8 text-2xl font-bold group">
+                        <div class="flex items-center justify-center gap-4">
+                            <span class="text-4xl">👑</span>
+                            <div class="text-left">
+                                <div class="text-3xl font-bold">Create Room</div>
+                                <div class="text-lg opacity-90">Host a game</div>
+                            </div>
+                        </div>
                     </button>
-                    <button id="joinRoomBtn" class="btn btn-secondary">
-                        <i class="fas fa-sign-in-alt"></i>
-                        Join Room
+                    <button id="joinByQRBtn" class="modern-button bg-gradient-to-r from-purple-600 to-purple-800 text-white px-10 py-8 text-2xl font-bold group">
+                        <div class="flex items-center justify-center gap-4">
+                            <span class="text-4xl">📱</span>
+                            <div class="text-left">
+                                <div class="text-3xl font-bold">Join Game</div>
+                                <div class="text-lg opacity-90">With Code</div>
+                            </div>
+                        </div>
+                    </button>
+                </div>
+                
+                <!-- Manual join option (smaller, secondary) -->
+                <div class="mt-8 text-center">
+                    <button id="joinRoomBtn" class="text-white text-lg underline hover:text-yellow-200 transition-colors">
+                        <i class="fas fa-keyboard mr-2"></i>
+                        Or enter room code manually
                     </button>
                 </div>
             </div>
@@ -33,120 +2203,301 @@
 
         <!-- Create Room Page -->
         <div id="createRoomPage" class="page">
-            <div class="room-content">
-                <h2><i class="fas fa-crown"></i> Create New Room</h2>
-                <div class="room-code-display">
-                    <label>Room Code:</label>
-                    <div class="code-container">
-                        <span id="roomCode" class="room-code">----</span>
-                        <button id="copyCodeBtn" class="btn btn-small">
-                            <i class="fas fa-copy"></i>
+            <div class="room-entry-container">
+                <div class="room-entry-header">
+                    <h2><i class="fas fa-crown"></i> Create New Room</h2>
+                    <p>Set up your game room and invite friends to join!</p>
+                </div>
+
+                <!-- Step 1: Enter Name -->
+                <div id="hostNameStep" class="form-step">
+                    <div class="form-group">
+                        <label class="form-label">Your Name</label>
+                        <input type="text" id="hostName" placeholder="Enter your name" maxlength="20" class="form-input">
+                    </div>
+                    <button id="createRoomSubmitBtn" class="btn-submit">
+                        <i class="fas fa-plus"></i> Create Room
+                    </button>
+                </div>
+
+                <!-- Step 2: Room Created -->
+                <div id="roomCreatedStep" class="form-step" style="display: none;">
+                    <div class="room-success">
+                        <div class="success-icon">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <h3>Room Created Successfully!</h3>
+                        <p>Share the room code with your friends to let them join.</p>
+                    </div>
+                    
+                    <div class="room-code-section">
+                        <label class="form-label">Room Code</label>
+                        <div class="room-code-display">
+                            <span id="roomCode" class="room-code">----</span>
+                            <button id="copyCodeBtn" class="copy-btn">
+                                <i class="fas fa-copy"></i>
+                            </button>
+                        </div>
+                        <div class="room-share">
+                            <button id="shareRoomBtn" class="btn-share">
+                                <i class="fas fa-share"></i> Share Room
+                            </button>
+                        <button id="qrCodeBtn" class="btn-share">
+                            <i class="fas fa-qrcode"></i> QR Code
+                        </button>
+                        <button id="testQRBtn" class="btn-share" style="background: #ff6b6b;">
+                            <i class="fas fa-bug"></i> Test QR
+                        </button>
+                        </div>
+                    </div>
+
+                    <div class="players-waiting">
+                        <h4><i class="fas fa-users"></i> Players in Room</h4>
+                        <div id="playersList" class="players-list-mini"></div>
+                    </div>
+
+                    <div class="game-actions">
+                        <button id="startGameBtn" class="btn-start-game" disabled>
+                            <i class="fas fa-play"></i>
+                            Start Game
                         </button>
                     </div>
                 </div>
-                <div class="player-info">
-                    <input type="text" id="hostName" placeholder="Enter your name" maxlength="20">
-                    <button id="startGameBtn" class="btn btn-primary" disabled>
-                        <i class="fas fa-play"></i>
-                        Start Game
+
+                <div class="back-button">
+                    <button id="backToLandingBtn" class="btn-back">
+                        <i class="fas fa-arrow-left"></i>
+                        Back to Menu
                     </button>
                 </div>
-                <div class="waiting-players">
-                    <h3>Waiting for players...</h3>
-                    <div id="playersList" class="players-list"></div>
-                </div>
-                <button id="backToLandingBtn" class="btn btn-outline">
-                    <i class="fas fa-arrow-left"></i>
-                    Back
-                </button>
             </div>
         </div>
 
         <!-- Join Room Page -->
         <div id="joinRoomPage" class="page">
-            <div class="room-content">
-                <h2><i class="fas fa-sign-in-alt"></i> Join Room</h2>
-                <div class="join-form">
-                    <input type="text" id="roomCodeInput" placeholder="Enter room code" maxlength="6">
-                    <input type="text" id="playerName" placeholder="Enter your name" maxlength="20">
-                    <button id="joinGameBtn" class="btn btn-primary">
-                        <i class="fas fa-sign-in-alt"></i>
-                        Join Game
+            <div class="room-entry-container">
+                <div class="room-entry-header">
+                    <h2><i class="fas fa-sign-in-alt"></i> Join Room</h2>
+                    <p>Enter the room code to join an existing game!</p>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Room Code</label>
+                    <input type="text" id="roomCodeInput" placeholder="Enter 6-digit room code" maxlength="6" class="form-input" style="text-transform: uppercase; text-align: center; font-size: 1.2rem; letter-spacing: 0.2em;">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Your Name</label>
+                    <input type="text" id="playerName" placeholder="Enter your name" maxlength="20" class="form-input">
+                </div>
+
+                <button id="joinGameBtn" class="btn-submit">
+                    <i class="fas fa-sign-in-alt"></i> Join Room
+                </button>
+
+                <div class="back-button">
+                    <button id="backToLandingBtn2" class="btn-back">
+                        <i class="fas fa-arrow-left"></i>
+                        Back to Menu
                     </button>
                 </div>
-                <button id="backToLandingBtn2" class="btn btn-outline">
-                    <i class="fas fa-arrow-left"></i>
-                    Back
-                </button>
+            </div>
+        </div>
+
+        <!-- Join by QR Page -->
+        <div id="joinByQRPage" class="page">
+            <div class="room-entry-container">
+                <div class="room-entry-header">
+                    <h2><i class="fas fa-qrcode"></i> Join Room</h2>
+                    <p>Scan the QR code from the host to join instantly!</p>
+                </div>
+
+                <div class="qr-scanner-container">
+                    <div class="qr-scanner-box">
+                        <div class="qr-scanner-header">
+                            <h3>Scan QR Code</h3>
+                            <p>Ask the host to show their QR code, then point your camera at it</p>
+                        </div>
+                        
+                        <div class="qr-scanner-area" id="qrDropZone">
+                            <div class="qr-scanner-placeholder" id="qrPlaceholder">
+                                <div class="qr-scanner-icon">
+                                    <i class="fas fa-qrcode"></i>
+                                </div>
+                                <p class="qr-scanner-text">Camera access required</p>
+                                <p class="qr-scanner-subtext">Allow camera permission to scan QR codes</p>
+                            </div>
+                            <div class="qr-drop-overlay" id="qrDropOverlay" style="display: none;">
+                                <div class="qr-drop-content">
+                                    <i class="fas fa-cloud-upload-alt"></i>
+                                    <p>Drop QR code image here</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="qr-scanner-actions">
+                            <button id="startQRScannerBtn" class="btn-primary">
+                                <i class="fas fa-camera"></i> Start Scanner
+                            </button>
+                            <button id="stopQRScannerBtn" class="btn-secondary" style="display: none;">
+                                <i class="fas fa-stop"></i> Stop Scanner
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="qr-manual-entry">
+                        <div class="divider">
+                            <span>Can't scan? Enter code manually</span>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Room Code</label>
+                            <input type="text" id="manualRoomCodeInput" placeholder="Enter 6-digit room code" maxlength="6" class="form-input" style="text-transform: uppercase; text-align: center; font-size: 1.2rem; letter-spacing: 0.2em;">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="form-label">Your Name</label>
+                            <input type="text" id="qrPlayerName" placeholder="Enter your name" maxlength="20" class="form-input">
+                        </div>
+                        
+                        <button id="joinWithManualCodeBtn" class="btn-submit">
+                            <i class="fas fa-sign-in-alt"></i> Join Room
+                        </button>
+                    </div>
+                </div>
+
+                <div class="back-button">
+                    <button id="backToLandingBtn3" class="btn-back">
+                        <i class="fas fa-arrow-left"></i>
+                        Back to Menu
+                    </button>
+                </div>
             </div>
         </div>
 
         <!-- Game Room Page -->
         <div id="gameRoomPage" class="page">
-            <div class="game-header">
-                <div class="room-info">
-                    <span class="room-code-display">Room: <strong id="currentRoomCode">----</strong></span>
-                    <div class="players-count">
-                        <i class="fas fa-users"></i>
-                        <span id="playersCount">1</span> players
-                        <div class="players-list-mini" id="playersListMini"></div>
-                    </div>
-                </div>
-                <div class="game-controls">
-                    <button id="startGameInRoomBtn" class="btn btn-primary" style="display: none;">
-                        <i class="fas fa-play"></i>
-                        Start Game
-                    </button>
-                    <button id="manageQuestionsBtn" class="btn btn-questions">
-                        <i class="fas fa-cog"></i>
-                        Questions
-                    </button>
-                    <button id="voiceToggleBtn" class="btn btn-voice">
-                        <i class="fas fa-microphone"></i>
-                        Voice
-                    </button>
-                    <button id="chatToggleBtn" class="btn btn-chat">
-                        <i class="fas fa-comments"></i>
-                        Chat
-                    </button>
-                </div>
-            </div>
-
-            <div class="game-content">
-                <div class="current-player">
-                    <h3>Current Player: <span id="currentPlayerName">Player 1</span></h3>
-                    <div class="turn-timer" id="turnTimer" style="display: none;">
-                        <div class="timer-bar">
-                            <div class="timer-progress" id="timerProgress"></div>
+            <div class="game-room-container">
+                <div class="game-room-header">
+                    <div class="room-info-section">
+                        <div class="room-code-badge">
+                            <i class="fas fa-door-open"></i>
+                            Room: <strong id="currentRoomCode">----</strong>
                         </div>
-                        <span class="timer-text" id="timerText">30s</span>
+                        <div class="players-count-badge">
+                            <i class="fas fa-users"></i>
+                            <span id="playersCount">1</span> players
+                        </div>
+                    </div>
+                    <div class="game-controls-section">
+                        <button id="startGameInRoomBtn" class="btn btn-primary" style="display: none;">
+                            <i class="fas fa-play"></i>
+                            Start Game
+                        </button>
+                        <button id="manageQuestionsBtn" class="btn btn-questions">
+                            <i class="fas fa-cog"></i>
+                            Questions
+                        </button>
+                        <button id="voiceToggleBtn" class="btn btn-voice">
+                            <i class="fas fa-microphone"></i>
+                            Voice
+                        </button>
+                        <button id="chatToggleBtn" class="btn btn-chat">
+                            <i class="fas fa-comments"></i>
+                            Chat
+                        </button>
                     </div>
                 </div>
                 
-                <div class="card-container">
-                    <div class="card">
-                        <div class="card-header">
-                            <span id="cardType" class="card-type">Truth</span>
+                <div style="display: flex; gap: 1rem; padding: 1rem;">
+                    <!-- Players Sidebar -->
+                    <div class="players-sidebar">
+                        <div class="players-header">
+                            <i class="fas fa-users"></i>
+                            Players in Room
                         </div>
-                        <div class="card-content">
-                            <p id="cardQuestion">Choose your challenge!</p>
-                        </div>
+                        <div id="playersListMini"></div>
                     </div>
-                </div>
+                    
+                    <!-- Main Game Area -->
+                    <div style="flex: 1;">
+                        <!-- Game Status -->
+                        <div class="game-status">
+                            <h3>Current Player: <span id="currentPlayerName">Player 1</span></h3>
+                            <p id="gameStatusText">Waiting for game to start...</p>
+                            <div class="turn-timer" id="turnTimer" style="display: none;">
+                                <div class="timer-bar">
+                                    <div class="timer-progress" id="timerProgress"></div>
+                                </div>
+                                <span class="timer-text" id="timerText">30s</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Truth or Dare Card -->
+                        <div class="game-card-container" id="gameCardContainer" style="display: none;">
+                            <div class="game-card" id="gameCard" onclick="flipCard()">
+                                <div class="card-click-hint">Click to reveal</div>
+                                <div class="card-inner">
+                                    <div class="card-front">
+                                        <div class="card-header">
+                                            <div class="card-type-badge" id="cardTypeBadge">TRUTH</div>
+                                            <div class="card-player">for <span id="cardPlayerName">Player</span></div>
+                                        </div>
+                                        <div class="card-content">
+                                            <div class="card-question" id="cardQuestion">Choose your challenge!</div>
+                                        </div>
+                                        <div class="card-footer">
+                                            <div class="card-instructions">Click to reveal the question!</div>
+                                        </div>
+                                    </div>
+                                    <div class="card-back" id="cardBack">
+                                        <div class="card-header">
+                                            <div class="card-type-badge" id="cardTypeBadgeBack">TRUTH</div>
+                                            <div class="card-player">for <span id="cardPlayerNameBack">Player</span></div>
+                                        </div>
+                                        <div class="card-content">
+                                            <div class="card-question" id="cardQuestionBack">Choose your challenge!</div>
+                                        </div>
+                                        <div class="card-footer">
+                                            <div class="card-instructions">Answer honestly or complete the challenge!</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Challenge Selection -->
+                        <div class="challenge-selection" id="challengeSelection" style="display: none;">
+                            <h3>Choose Your Challenge</h3>
+                            <div class="challenge-buttons">
+                                <button id="truthBtn" class="challenge-btn truth-btn">
+                                    <div class="btn-icon">💭</div>
+                                    <div class="btn-text">
+                                        <div class="btn-title">Truth</div>
+                                        <div class="btn-subtitle">Answer a question honestly</div>
+                                    </div>
+                                </button>
+                                <button id="dareBtn" class="challenge-btn dare-btn">
+                                    <div class="btn-icon">🔥</div>
+                                    <div class="btn-text">
+                                        <div class="btn-title">Dare</div>
+                                        <div class="btn-subtitle">Complete a challenge</div>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
 
-                <div class="game-actions">
-                    <button id="truthBtn" class="btn btn-truth">
+                <!-- Action Buttons -->
+                <div class="action-buttons">
+                    <button id="truthBtn" class="btn-action btn-truth-action" style="display: none;">
                         <i class="fas fa-heart"></i>
                         Truth
                     </button>
-                    <button id="dareBtn" class="btn btn-dare">
+                    <button id="dareBtn" class="btn-action btn-dare-action" style="display: none;">
                         <i class="fas fa-fire"></i>
                         Dare
                     </button>
-                </div>
-
-                <div class="next-player-section">
-                    <button id="nextPlayerBtn" class="btn btn-next" disabled>
+                    <button id="nextPlayerBtn" class="btn-action btn-next-action" disabled>
                         <i class="fas fa-arrow-right"></i>
                         Next Player
                     </button>
@@ -191,41 +2542,156 @@
         </div>
     </div>
 
-    <!-- Question Management Modal -->
+    <!-- Enhanced Question Management Modal -->
     <div id="questionModal" class="modal hidden">
-        <div class="modal-content">
+        <div class="modal-content question-modal-content">
             <div class="modal-header">
-                <h3>Manage Questions</h3>
-                <button id="closeQuestionModal" class="btn btn-small">
+                <div class="modal-title">
+                    <i class="fas fa-cogs"></i>
+                    <h3>Question Settings</h3>
+                </div>
+                <button id="closeQuestionModal" class="btn-close">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
+            
             <div class="modal-body">
+                <!-- Question Stats -->
+                <div class="question-stats">
+                    <div class="stat-item">
+                        <i class="fas fa-question-circle"></i>
+                        <span class="stat-label">Truth Questions</span>
+                        <span id="truthCount" class="stat-value">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <i class="fas fa-fire"></i>
+                        <span class="stat-label">Dare Questions</span>
+                        <span id="dareCount" class="stat-value">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <i class="fas fa-list"></i>
+                        <span class="stat-label">Total Questions</span>
+                        <span id="totalCount" class="stat-value">0</span>
+                    </div>
+                </div>
+
+                <!-- Enhanced Tabs -->
                 <div class="question-tabs">
-                    <button class="tab-btn active" data-tab="truth">Truth Questions</button>
-                    <button class="tab-btn" data-tab="dare">Dare Questions</button>
+                    <button class="tab-btn active" data-tab="truth">
+                        <i class="fas fa-question-circle"></i>
+                        <span>Truth Questions</span>
+                        <span class="tab-count" id="truthTabCount">0</span>
+                    </button>
+                    <button class="tab-btn" data-tab="dare">
+                        <i class="fas fa-fire"></i>
+                        <span>Dare Questions</span>
+                        <span class="tab-count" id="dareTabCount">0</span>
+                    </button>
                 </div>
                 
+                <!-- Truth Questions Tab -->
                 <div id="truthTab" class="tab-content active">
-                    <div class="add-question">
-                        <input type="text" id="newTruthQuestion" placeholder="Add new truth question...">
-                        <button id="addTruthBtn" class="btn btn-small">Add</button>
+                    <div class="add-question-section">
+                        <div class="add-question-header">
+                            <h4><i class="fas fa-plus-circle"></i> Add New Truth Question</h4>
+                        </div>
+                        <div class="add-question-form">
+                            <div class="input-group">
+                                <input type="text" id="newTruthQuestion" placeholder="Enter a truth question..." maxlength="200">
+                                <button id="addTruthBtn" class="btn btn-primary">
+                                    <i class="fas fa-plus"></i> Add Truth
+                                </button>
+                            </div>
+                            <div class="question-preview" id="truthPreview" style="display: none;">
+                                <div class="preview-card truth-card">
+                                    <div class="card-header">
+                                        <i class="fas fa-question-circle"></i>
+                                        <span>Truth</span>
+                                    </div>
+                                    <div class="card-content" id="truthPreviewText"></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div id="truthQuestionsList" class="questions-list"></div>
+                    
+                    <div class="questions-section">
+                        <div class="questions-header">
+                            <h4><i class="fas fa-list"></i> Current Truth Questions</h4>
+                            <div class="questions-actions">
+                                <button id="clearTruthBtn" class="btn btn-danger btn-small">
+                                    <i class="fas fa-trash"></i> Clear All
+                                </button>
+                                <button id="importTruthBtn" class="btn btn-secondary btn-small">
+                                    <i class="fas fa-upload"></i> Import
+                                </button>
+                            </div>
+                        </div>
+                        <div id="truthQuestionsList" class="questions-list"></div>
+                    </div>
                 </div>
                 
+                <!-- Dare Questions Tab -->
                 <div id="dareTab" class="tab-content">
-                    <div class="add-question">
-                        <input type="text" id="newDareQuestion" placeholder="Add new dare question...">
-                        <button id="addDareBtn" class="btn btn-small">Add</button>
+                    <div class="add-question-section">
+                        <div class="add-question-header">
+                            <h4><i class="fas fa-plus-circle"></i> Add New Dare Question</h4>
+                        </div>
+                        <div class="add-question-form">
+                            <div class="input-group">
+                                <input type="text" id="newDareQuestion" placeholder="Enter a dare question..." maxlength="200">
+                                <button id="addDareBtn" class="btn btn-primary">
+                                    <i class="fas fa-plus"></i> Add Dare
+                                </button>
+                            </div>
+                            <div class="question-preview" id="darePreview" style="display: none;">
+                                <div class="preview-card dare-card">
+                                    <div class="card-header">
+                                        <i class="fas fa-fire"></i>
+                                        <span>Dare</span>
+                                    </div>
+                                    <div class="card-content" id="darePreviewText"></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div id="dareQuestionsList" class="questions-list"></div>
+                    
+                    <div class="questions-section">
+                        <div class="questions-header">
+                            <h4><i class="fas fa-list"></i> Current Dare Questions</h4>
+                            <div class="questions-actions">
+                                <button id="clearDareBtn" class="btn btn-danger btn-small">
+                                    <i class="fas fa-trash"></i> Clear All
+                                </button>
+                                <button id="importDareBtn" class="btn btn-secondary btn-small">
+                                    <i class="fas fa-upload"></i> Import
+                                </button>
+                            </div>
+                        </div>
+                        <div id="dareQuestionsList" class="questions-list"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-footer">
+                <div class="modal-actions">
+                    <button id="resetQuestionsBtn" class="btn btn-warning">
+                        <i class="fas fa-undo"></i> Reset to Default
+                    </button>
+                    <button id="exportQuestionsBtn" class="btn btn-info">
+                        <i class="fas fa-download"></i> Export Questions
+                    </button>
+                    <button id="closeQuestionModalFooter" class="btn btn-primary">
+                        <i class="fas fa-check"></i> Done
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
     <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js" onerror="console.warn('Failed to load jsQR from CDN')"></script>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js" onerror="console.warn('Failed to load QRCode from CDN')"></script>
     <script src="script.js"></script>
 </body>
 </html>
+
