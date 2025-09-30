@@ -2449,18 +2449,46 @@ class TruthOrDareGame {
                     this.selectiveVoiceMode = false;
                 }
                 
-                // Get user media with better constraints and error handling
+                // Detect mobile device and optimize constraints
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                
+                // Mobile-optimized audio constraints
+                const audioConstraints = isMobile ? {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true,
+                    sampleRate: isIOS ? 48000 : 44100, // iOS prefers 48kHz
+                    channelCount: 1,
+                    latency: 0.01, // Lower latency for mobile
+                    volume: 1.0
+                } : {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true,
+                    sampleRate: 44100,
+                    channelCount: 1
+                };
+                
+                console.log(`Mobile device detected: ${isMobile}, iOS: ${isIOS}`);
+                console.log('Using audio constraints:', audioConstraints);
+                
+                // Get user media with mobile-optimized constraints
                 this.localStream = await navigator.mediaDevices.getUserMedia({ 
-                    audio: {
-                        echoCancellation: true,
-                        noiseSuppression: true,
-                        autoGainControl: true,
-                        sampleRate: 44100,
-                        channelCount: 1
-                    }, 
+                    audio: audioConstraints,
                     video: false 
                 }).catch(error => {
                     console.error('Microphone access denied:', error);
+                    
+                    // Mobile-specific error messages
+                    if (isMobile) {
+                        if (error.name === 'NotAllowedError') {
+                            throw new Error('Microphone access denied on mobile. Please:\n1. Allow microphone permission in your browser\n2. Make sure you\'re using Chrome or Safari\n3. Try refreshing the page');
+                        } else if (error.name === 'NotFoundError') {
+                            throw new Error('No microphone found on mobile. Please:\n1. Check if your phone has a working microphone\n2. Try using headphones with a microphone\n3. Restart your browser');
+                        }
+                    }
+                    
                     throw new Error('Microphone access is required for voice chat. Please allow microphone access and try again.');
                 });
                 
@@ -3092,8 +3120,21 @@ class TruthOrDareGame {
     
     async createPeerConnection(playerId) {
         try {
-            // Enhanced STUN/TURN configuration for better connectivity
-            const peerConnection = new RTCPeerConnection({
+            // Detect mobile device for optimized configuration
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            
+            // Mobile-optimized WebRTC configuration
+            const rtcConfig = isMobile ? {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' }
+                ],
+                iceCandidatePoolSize: 5, // Reduced for mobile
+                iceTransportPolicy: 'all',
+                bundlePolicy: 'max-bundle', // Better for mobile
+                rtcpMuxPolicy: 'require' // Required for mobile
+            } : {
                 iceServers: [
                     { urls: 'stun:stun.l.google.com:19302' },
                     { urls: 'stun:stun1.l.google.com:19302' },
@@ -3111,7 +3152,10 @@ class TruthOrDareGame {
                     { urls: 'stun:stun.xten.com' }
                 ],
                 iceCandidatePoolSize: 10
-            });
+            };
+            
+            console.log(`Creating peer connection for ${playerId} (Mobile: ${isMobile})`);
+            const peerConnection = new RTCPeerConnection(rtcConfig);
             
             this.peerConnections[playerId] = peerConnection;
             
@@ -3122,14 +3166,34 @@ class TruthOrDareGame {
                 });
             }
             
-            // Enhanced connection monitoring
+            // Enhanced connection monitoring with mobile-specific handling
             peerConnection.onconnectionstatechange = () => {
                 const state = peerConnection.connectionState;
-                console.log(`Connection to ${playerId}: ${state}`);
+                const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+                console.log(`Connection to ${playerId}: ${state} (Mobile: ${isMobile})`);
                 
                 if (state === 'failed' || state === 'disconnected') {
                     console.warn(`Voice connection to ${playerId} failed`);
+                    
+                    // Mobile-specific retry logic
+                    if (isMobile) {
+                        setTimeout(() => {
+                            if (this.peerConnections[playerId] && this.voiceEnabled) {
+                                console.log(`Mobile retry: Attempting to reconnect to ${playerId}`);
+                                this.createPeerConnection(playerId);
+                            }
+                        }, 2000); // Shorter retry delay for mobile
+                    } else {
+                        setTimeout(() => {
+                            if (this.peerConnections[playerId] && this.voiceEnabled) {
+                                console.log(`Attempting to reconnect to ${playerId}`);
+                                this.createPeerConnection(playerId);
+                            }
+                        }, 3000);
+                    }
+                    
                     this.showNotification('Voice Connection Issue', 
+                        isMobile ? 'Mobile voice connection issue. Retrying...' : 
                         'Some voice connections may not be working properly', 'warning');
                 } else if (state === 'connected') {
                     console.log(`Voice connection to ${playerId} established`);
@@ -3664,10 +3728,18 @@ class TruthOrDareGame {
             microphoneAccess: false,
             webrtcSupport: false,
             networkConnectivity: false,
+            isMobile: false,
+            isIOS: false,
+            isAndroid: false,
             issues: []
         };
         
         try {
+            // Detect mobile device
+            diagnostics.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            diagnostics.isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            diagnostics.isAndroid = /Android/i.test(navigator.userAgent);
+            
             // Check browser support
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 diagnostics.browserSupport = true;
@@ -3682,13 +3754,38 @@ class TruthOrDareGame {
                 diagnostics.issues.push('Browser does not support WebRTC');
             }
             
-            // Test microphone access
+            // Mobile-specific checks
+            if (diagnostics.isMobile) {
+                if (diagnostics.isIOS) {
+                    diagnostics.issues.push('iOS detected - Use Safari for best voice chat experience');
+                } else if (diagnostics.isAndroid) {
+                    diagnostics.issues.push('Android detected - Use Chrome for best voice chat experience');
+                }
+                
+                // Check for HTTPS requirement
+                if (location.protocol !== 'https:') {
+                    diagnostics.issues.push('HTTPS required for mobile voice chat');
+                }
+            }
+            
+            // Test microphone access with mobile-optimized constraints
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const audioConstraints = diagnostics.isMobile ? {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true,
+                    sampleRate: diagnostics.isIOS ? 48000 : 44100
+                } : { audio: true };
+                
+                const stream = await navigator.mediaDevices.getUserMedia(audioConstraints);
                 diagnostics.microphoneAccess = true;
                 stream.getTracks().forEach(track => track.stop());
             } catch (error) {
-                diagnostics.issues.push(`Microphone access failed: ${error.message}`);
+                if (diagnostics.isMobile) {
+                    diagnostics.issues.push(`Mobile microphone access failed: ${error.message}. Try using Chrome or Safari.`);
+                } else {
+                    diagnostics.issues.push(`Microphone access failed: ${error.message}`);
+                }
             }
             
             // Test network connectivity
