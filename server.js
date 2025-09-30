@@ -170,6 +170,11 @@ socket.on('start-game', (data) => {
   const room = rooms.get(data.roomCode);
   if (!room || socket.id !== room.hostId) return;
 
+  // Store game rules if provided
+  if (data.rules) {
+    room.gameRules = data.rules;
+  }
+
   // mark game started
   room.gameStarted = true;
 
@@ -183,7 +188,8 @@ socket.on('start-game', (data) => {
 
   io.to(data.roomCode).emit('game-started', {
     currentPlayer: currentPlayer,
-    players: room.getPlayerList()
+    players: room.getPlayerList(),
+    rules: room.gameRules || {}
   });
 
   console.log(`Game started in room ${data.roomCode} with current player:`, currentPlayer);
@@ -247,10 +253,100 @@ socket.on('start-game', (data) => {
     const player = room.players.get(socket.id);
     if (!player) return;
     
+    // Update player's voice status
+    player.voiceEnabled = data.enabled;
+    player.selectiveVoiceMode = data.selectiveMode || false;
+    
     io.to(data.roomCode).emit('voice-status', {
       player: player.name,
-      enabled: data.enabled
+      enabled: data.enabled,
+      selectiveMode: data.selectiveMode || false
     });
+  });
+
+  // Voice mute toggle
+  socket.on('voice-mute-toggle', (data) => {
+    const room = rooms.get(data.roomCode);
+    if (!room) return;
+    
+    const player = room.players.get(socket.id);
+    if (!player) return;
+    
+    // Update player's mute status
+    player.voiceMuted = data.muted;
+    
+    io.to(data.roomCode).emit('voice-mute-status', {
+      player: player.name,
+      muted: data.muted
+    });
+  });
+
+  // Kick player (host only)
+  socket.on('kick-player', (data) => {
+    const room = rooms.get(data.roomCode);
+    if (!room || socket.id !== room.hostId) return;
+    
+    const targetPlayer = Array.from(room.players.values())
+      .find(p => p.name === data.playerName && !p.isHost);
+    
+    if (targetPlayer) {
+      const targetSocket = io.sockets.sockets.get(targetPlayer.id);
+      if (targetSocket) {
+        targetSocket.emit('kicked', { reason: 'Kicked by host' });
+        targetSocket.disconnect();
+      }
+      
+      room.removePlayer(targetPlayer.id);
+      io.to(data.roomCode).emit('player-left', {
+        player: data.playerName,
+        players: room.getPlayerList()
+      });
+      
+      console.log(`Player ${data.playerName} kicked from room ${data.roomCode}`);
+    }
+  });
+
+  // Transfer host (host only)
+  socket.on('transfer-host', (data) => {
+    const room = rooms.get(data.roomCode);
+    if (!room || socket.id !== room.hostId) return;
+    
+    const newHost = Array.from(room.players.values())
+      .find(p => p.name === data.playerName && !p.isHost);
+    
+    if (newHost) {
+      // Update host status
+      room.players.get(socket.id).isHost = false;
+      room.players.get(newHost.id).isHost = true;
+      room.hostId = newHost.id;
+      
+      io.to(data.roomCode).emit('host-transferred', {
+        newHost: data.playerName,
+        players: room.getPlayerList()
+      });
+      
+      console.log(`Host transferred to ${data.playerName} in room ${data.roomCode}`);
+    }
+  });
+
+  // Rules updated
+  socket.on('rules-updated', (data) => {
+    const room = rooms.get(data.roomCode);
+    if (!room) return;
+    
+    const player = room.players.get(socket.id);
+    if (!player || !player.isHost) return;
+    
+    // Update room rules
+    room.gameRules = data.rules;
+    
+    // Notify all players
+    io.to(data.roomCode).emit('rules-updated', {
+      rules: data.rules,
+      updatedBy: player.name
+    });
+    
+    console.log(`Rules updated in room ${data.roomCode} by ${player.name}`);
   });
 
   // WebRTC signaling

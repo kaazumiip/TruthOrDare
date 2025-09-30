@@ -18,6 +18,28 @@ class TruthOrDareGame {
         this.localStream = null;
         this.audioContext = null;
         
+        // Rule system properties
+        this.gameRules = {
+            maxPlayers: 8,
+            minPlayers: 2,
+            categories: ['normal', 'couple', 'mystery', 'dare'],
+            selectedCategory: 'normal',
+            safetyMode: true,
+            skipLimit: 3, // Max skips per player
+            timeLimit: 30, // Seconds to answer
+            scoring: false, // No scoring system
+            boundaries: {
+                respectBoundaries: true,
+                skipUncomfortable: true,
+                safeDares: true,
+                supportiveEnvironment: true
+            }
+        };
+        this.playerStats = {}; // Track player statistics
+        this.currentQuestion = null;
+        this.questionTimer = null;
+        this.selectiveVoiceMode = false;
+        
         this.initializeEventListeners();
         this.initializeSocketListeners();
         this.loadQuestions();
@@ -35,6 +57,95 @@ class TruthOrDareGame {
         this.checkForRoomParameter();
         
         // QR code functionality is handled locally
+        
+        // Force update visible player list after page loads
+        setTimeout(() => {
+            this.updateVisiblePlayerList();
+        }, 1000);
+        
+        // Also force update when page is fully loaded
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                this.updateVisiblePlayerList();
+            }, 500);
+        });
+        
+        // Force update when DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                this.updateVisiblePlayerList();
+            }, 200);
+        });
+        
+        // Force update when page becomes visible
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                setTimeout(() => {
+                    this.updateVisiblePlayerList();
+                }, 100);
+            }
+        });
+        
+        // Force update every 2 seconds to ensure it stays visible
+        setInterval(() => {
+            if (this.isHost) {
+                this.updateVisiblePlayerList();
+            }
+        }, 2000);
+        
+        // Add a simple test function to force show the list
+        window.testVisiblePlayerList = () => {
+            console.log('🧪 Testing visible player list...');
+            this.updateVisiblePlayerList();
+        };
+        
+        // Add a function to force show the list for testing
+        window.forceShowPlayerList = () => {
+            console.log('🔧 Forcing player list to show...');
+            const visiblePlayerList = document.getElementById('visiblePlayerList');
+            if (visiblePlayerList) {
+                visiblePlayerList.style.display = 'block';
+                visiblePlayerList.style.visibility = 'visible';
+                visiblePlayerList.style.opacity = '1';
+                visiblePlayerList.style.position = 'relative';
+                visiblePlayerList.style.zIndex = '10';
+                console.log('✅ Player list forced to show');
+            } else {
+                console.log('❌ Player list element not found');
+            }
+        };
+        
+        // Add a function to check if the list is working
+        window.checkPlayerList = () => {
+            console.log('🔍 Checking player list status...');
+            const visiblePlayerList = document.getElementById('visiblePlayerList');
+            const visiblePlayerListContainer = document.getElementById('visiblePlayerListContainer');
+            const visiblePlayerCount = document.getElementById('visiblePlayerCount');
+            
+            console.log('Elements found:', {
+                visiblePlayerList: !!visiblePlayerList,
+                visiblePlayerListContainer: !!visiblePlayerListContainer,
+                visiblePlayerCount: !!visiblePlayerCount,
+                isHost: this.isHost,
+                playersCount: this.players.length
+            });
+            
+            if (visiblePlayerList) {
+                console.log('Player list styles:', {
+                    display: visiblePlayerList.style.display,
+                    visibility: visiblePlayerList.style.visibility,
+                    opacity: visiblePlayerList.style.opacity
+                });
+            }
+        };
+        
+        // Add a function to force update player count
+        window.forceUpdatePlayerCount = () => {
+            console.log('🔧 Forcing player count update...');
+            this.updateGameDisplay();
+            this.updateVisiblePlayerList();
+            console.log('Current players:', this.players);
+        };
     }
     
     checkLibraries() {
@@ -354,6 +465,17 @@ class TruthOrDareGame {
         document.getElementById('closeVoiceBtn').addEventListener('click', () => this.toggleVoice());
         document.getElementById('sendMessageBtn').addEventListener('click', () => this.sendMessage());
         document.getElementById('muteBtn').addEventListener('click', () => this.toggleMute());
+        
+        // Rules panel event listeners
+        document.getElementById('rulesToggleBtn').addEventListener('click', () => this.toggleRules());
+        document.getElementById('closeRulesBtn').addEventListener('click', () => this.toggleRules());
+        document.getElementById('applyRulesBtn').addEventListener('click', () => this.applyRules());
+        document.getElementById('resetRulesBtn').addEventListener('click', () => this.resetRules());
+        
+        // Host controls event listeners
+        document.getElementById('kickPlayerBtn').addEventListener('click', () => this.showKickPlayerDialog());
+        document.getElementById('transferHostBtn').addEventListener('click', () => this.showTransferHostDialog());
+        document.getElementById('copyRoomCodeBtn').addEventListener('click', () => this.copyRoomCode());
         document.getElementById('manageQuestionsBtn').addEventListener('click', () => this.showQuestionModal());
         
         // Enhanced Question management
@@ -469,6 +591,9 @@ class TruthOrDareGame {
             this.isHost = true;
             this.players = [{ id: this.socket.id, name: data.playerName, isHost: true }];
             this.updatePlayersList();
+            this.updateVisiblePlayerList();
+            this.updateRoomPlayersList();
+            this.updateGameDisplay();
             
             // Show the room created step
             document.getElementById('hostNameStep').style.display = 'none';
@@ -477,6 +602,8 @@ class TruthOrDareGame {
             // Update room code display
             document.getElementById('roomCode').textContent = data.roomCode;
             document.getElementById('currentRoomCode').textContent = data.roomCode;
+            
+            console.log('🏠 Room created with players:', this.players);
             
             // Reset create button
             const createBtn = document.getElementById('createRoomSubmitBtn');
@@ -521,20 +648,49 @@ class TruthOrDareGame {
         this.socket.on('player-joined', (data) => {
             this.players = data.players;
             this.updatePlayersList();
+            this.updateRoomPlayersList();
             this.updateGameDisplay();
             this.addChatMessage('System', `${data.player.name} joined the game!`, false);
-            this.showNotification('Player Joined', `${data.player.name} joined the room!`, 'player-join');
+            
+            // Enhanced notification for host
+            if (this.isHost) {
+                this.showHostPlayerJoinNotification(data.player.name, data.roomCode);
+            } else {
+                this.showNotification('Player Joined', `${data.player.name} joined the room!`, 'player-join');
+            }
+            
+            // Show join notification animation
+            this.showPlayerJoinNotification(data.player.name);
+            
+            // Update room status
+            this.updateRoomStatus();
+            
+            // Ensure visible player list is updated
+            this.updateVisiblePlayerList();
+            
+            console.log('👥 Player joined, total players:', this.players.length);
             
             // If voice is enabled, create connection with new player
             if (this.voiceEnabled && this.localStream) {
-                this.createPeerConnection(data.player.id);
+                if (this.selectiveVoiceMode) {
+                    // In selective mode, only connect if they're important (current/next/prev)
+                    const shouldConnect = this.shouldConnectToPlayer(data.player.id);
+                    if (shouldConnect) {
+                        this.createPeerConnection(data.player.id);
+                    }
+                } else {
+                    // In full mode, connect to everyone
+                    this.createPeerConnection(data.player.id);
+                }
             }
         });
         
         this.socket.on('player-left', (data) => {
             this.players = data.players;
             this.updatePlayersList();
+            this.updateRoomPlayersList();
             this.updateGameDisplay();
+            this.updateVisiblePlayerList();
             this.addChatMessage('System', `${data.player} left the game`, false);
         });
         
@@ -552,8 +708,15 @@ class TruthOrDareGame {
             this.gameStarted = true;
             this.players = data.players;
             this.currentPlayer = data.currentPlayer;
+            
+            // Apply rules from server
+            if (data.rules) {
+                this.gameRules = { ...this.gameRules, ...data.rules };
+            }
+            
             this.showGameRoom(); // Show the game room when game starts
             this.updateGameDisplay();
+            this.updateVisiblePlayerList();
             this.addChatMessage('System', 'Game started!', false);
             this.showNotification('🎮 Game started! First player can choose Truth or Dare!', 'success', 5000);
             this.hideLoadingOverlay();
@@ -570,14 +733,24 @@ class TruthOrDareGame {
         
         
         this.socket.on('challenge-selected', (data) => {
+            this.currentQuestion = data;
             this.showCard(data.type, data.question, data.player);
+            
+            // Start question timer if enabled
+            if (this.gameRules.timeLimit > 0) {
+                this.startQuestionTimer();
+            }
         });
         
         this.socket.on('player-changed', (data) => {
             this.players = data.players;
             this.currentPlayer = data.currentPlayer;
             this.updateGameDisplay();
+            this.updateVisiblePlayerList();
             this.resetCard();
+            
+            // Update voice connections for selective mode
+            this.updateVoiceConnectionsForTurn();
         });
         
         // Chat events
@@ -593,6 +766,36 @@ class TruthOrDareGame {
         this.socket.on('voice-status', (data) => {
             if (data.player !== this.playerName) {
                 this.updateVoiceStatus(data.player, data.enabled);
+            }
+        });
+        
+        this.socket.on('voice-mute-status', (data) => {
+            if (data.player !== this.playerName) {
+                this.updatePlayerMuteStatus(data.player, data.muted);
+            }
+        });
+        
+        this.socket.on('kicked', (data) => {
+            this.showNotification('Kicked from Room', data.reason, 'error');
+            setTimeout(() => {
+                window.location.href = 'index.html';
+            }, 3000);
+        });
+        
+        this.socket.on('host-transferred', (data) => {
+            this.players = data.players;
+            this.isHost = data.players.find(p => p.id === this.socket.id)?.isHost || false;
+            this.updatePlayersList();
+            this.updateHostControls();
+            this.showNotification('Host Transferred', `${data.newHost} is now the host`, 'info');
+        });
+        
+        // Rules events
+        this.socket.on('rules-updated', (data) => {
+            if (data.rules) {
+                this.gameRules = { ...this.gameRules, ...data.rules };
+                this.showNotification('Rules Updated', `Rules updated by ${data.updatedBy}`, 'info');
+                console.log('Rules updated from server:', data.rules);
             }
         });
         
@@ -662,6 +865,15 @@ class TruthOrDareGame {
     showGameRoom() {
         this.showPage('gameRoomPage');
         this.updateGameDisplay();
+        this.updateRoomStatus();
+        this.updateHostControls();
+        this.updateVisiblePlayerList();
+        console.log('🏠 Game room shown, updating visible player list');
+        
+        // Force update visible player list after a short delay to ensure DOM is ready
+        setTimeout(() => {
+            this.updateVisiblePlayerList();
+        }, 100);
     }
     
 
@@ -723,6 +935,11 @@ class TruthOrDareGame {
             return;
         }
         
+        // Enforce game rules before starting
+        if (!this.enforceRules()) {
+            return;
+        }
+        
         // Show loading state
         const startBtn = document.getElementById('startGameBtn');
         if (startBtn) {
@@ -733,8 +950,11 @@ class TruthOrDareGame {
         this.setButtonLoading('startGameInRoomBtn', true);
         this.showLoadingOverlay('Starting game...');
         
-        // Start the game in the existing room
-        this.socket.emit('start-game', { roomCode: this.roomCode });
+        // Start the game with rules
+        this.socket.emit('start-game', { 
+            roomCode: this.roomCode,
+            rules: this.getGameRulesDisplay()
+        });
     }
     
     createRoom() {
@@ -1534,6 +1754,7 @@ class TruthOrDareGame {
         this.players.forEach(player => {
             const playerItem = document.createElement('div');
             playerItem.className = 'player-item';
+            playerItem.setAttribute('data-player-id', player.id);
             
             // Add special classes for different player states
             if (player.isHost) {
@@ -1572,6 +1793,359 @@ class TruthOrDareGame {
             `;
             playersList.appendChild(playerItem);
         });
+        
+        // Update visible player list for all players
+        this.updateVisiblePlayerList();
+        
+        // Update host controls visibility
+        this.updateHostControls();
+    }
+    
+    updateVisiblePlayerList() {
+        const visiblePlayerList = document.getElementById('visiblePlayerList');
+        const visiblePlayerListContainer = document.getElementById('visiblePlayerListContainer');
+        const visiblePlayerCount = document.getElementById('visiblePlayerCount');
+        
+        console.log('🔍 Updating visible player list:', {
+            visiblePlayerList: !!visiblePlayerList,
+            visiblePlayerListContainer: !!visiblePlayerListContainer,
+            visiblePlayerCount: !!visiblePlayerCount,
+            isHost: this.isHost,
+            playersCount: this.players.length
+        });
+        
+        if (!visiblePlayerList || !visiblePlayerListContainer || !visiblePlayerCount) {
+            console.log('❌ Missing elements for visible player list');
+            return;
+        }
+        
+        // Show for all players now
+        visiblePlayerList.style.display = 'block';
+        visiblePlayerList.style.visibility = 'visible';
+        visiblePlayerList.style.opacity = '1';
+        visiblePlayerList.style.position = 'relative';
+        visiblePlayerList.style.zIndex = '10';
+        console.log('✅ Showing visible player list for all players');
+        
+        // Update player count
+        visiblePlayerCount.textContent = this.players.length;
+        
+        // Clear existing players
+        visiblePlayerListContainer.innerHTML = '';
+        
+        console.log('👥 Adding players to visible list:', this.players);
+        
+        // Add each player
+        if (this.players.length === 0) {
+            // Show empty state
+            const emptyState = document.createElement('div');
+            emptyState.className = 'visible-player-item';
+            emptyState.innerHTML = `
+                <div class="visible-player-info">
+                    <div class="visible-player-name">No players yet</div>
+                    <div class="visible-player-status">
+                        <div class="status-dot offline"></div>
+                        Waiting for players to join
+                    </div>
+                </div>
+            `;
+            visiblePlayerListContainer.appendChild(emptyState);
+            console.log('📝 Added empty state to visible list');
+        } else {
+            this.players.forEach(player => {
+                const playerItem = document.createElement('div');
+                playerItem.className = 'visible-player-item';
+                if (player.isHost) {
+                    playerItem.classList.add('host');
+                }
+                
+                // Get first letter of name for avatar
+                const avatarLetter = player.name.charAt(0).toUpperCase();
+                
+                // Determine status
+                let statusClass = 'status-dot';
+                let statusText = 'Online';
+                if (this.currentPlayer && player.id === this.currentPlayer.id) {
+                    statusClass += ' speaking';
+                    statusText = 'Speaking';
+                } else if (this.voiceEnabled) {
+                    statusText = 'Voice enabled';
+                } else {
+                    statusClass += ' offline';
+                    statusText = 'Muted';
+                }
+                
+                playerItem.innerHTML = `
+                    <div class="visible-player-avatar ${player.isHost ? 'host' : ''}">
+                        ${avatarLetter}
+                    </div>
+                    <div class="visible-player-info">
+                        <div class="visible-player-name">${player.name}</div>
+                        <div class="visible-player-status">
+                            <div class="${statusClass}"></div>
+                            ${statusText}
+                        </div>
+                    </div>
+                `;
+                
+                visiblePlayerListContainer.appendChild(playerItem);
+                console.log('✅ Added player to visible list:', player.name);
+            });
+        }
+        
+        console.log('🎉 Visible player list updated successfully');
+        
+        // Force the list to be visible for all players
+        visiblePlayerList.style.display = 'block';
+        visiblePlayerList.style.visibility = 'visible';
+        visiblePlayerList.style.opacity = '1';
+        console.log('🔧 Forced visible player list to show for all players');
+    }
+    
+    // Enhanced Player Display for Room Code Page
+    updateRoomPlayersList() {
+        const roomPlayersList = document.getElementById('roomPlayersList');
+        const roomPlayerCount = document.getElementById('roomPlayerCount');
+        const roomPlayerCountBadge = document.getElementById('roomPlayerCountBadge');
+        
+        console.log('🏠 Updating room players list:', {
+            roomPlayersList: !!roomPlayersList,
+            roomPlayerCount: !!roomPlayerCount,
+            roomPlayerCountBadge: !!roomPlayerCountBadge,
+            playersCount: this.players.length
+        });
+        
+        if (roomPlayersList) {
+            roomPlayersList.innerHTML = '';
+            this.players.forEach(player => {
+                const playerItem = document.createElement('div');
+                playerItem.className = 'room-player-item';
+                
+                // Add host class if this player is the host
+                if (player.isHost) {
+                    playerItem.classList.add('host');
+                }
+                
+                playerItem.innerHTML = `
+                    <div class="room-player-avatar ${player.isHost ? 'host' : ''}">${player.name.charAt(0).toUpperCase()}</div>
+                    <div class="room-player-info">
+                        <div class="room-player-name">${player.name}</div>
+                        <div class="room-player-status ${player.isHost ? 'host' : ''}">
+                            ${player.isHost ? 'Host' : 'Player'}
+                        </div>
+                    </div>
+                `;
+                
+                roomPlayersList.appendChild(playerItem);
+            });
+        }
+        
+        // Update player count displays
+        if (roomPlayerCount) {
+            roomPlayerCount.textContent = this.players.length;
+        }
+        if (roomPlayerCountBadge) {
+            roomPlayerCountBadge.textContent = this.players.length;
+        }
+        
+        console.log('✅ Room players list updated successfully');
+    }
+    
+    showPlayerJoinNotification(playerName) {
+        const joinNotifications = document.getElementById('joinNotifications');
+        if (!joinNotifications) return;
+        
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.className = 'join-notification-item';
+        notification.innerHTML = `
+            <div class="join-notification-content">
+                <i class="fas fa-user-plus"></i>
+                <span>${playerName} joined!</span>
+            </div>
+        `;
+        
+        // Add to notifications container
+        joinNotifications.appendChild(notification);
+        
+        // Auto-remove after 3 seconds
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 3000);
+    }
+    
+    showHostPlayerJoinNotification(playerName, roomCode) {
+        // Enhanced notification for host with room code
+        const notification = document.createElement('div');
+        notification.className = 'host-join-notification';
+        notification.innerHTML = `
+            <div class="host-join-content">
+                <div class="host-join-header">
+                    <i class="fas fa-crown"></i>
+                    <span>New Player Joined!</span>
+                </div>
+                <div class="host-join-details">
+                    <div class="player-name-large">${playerName}</div>
+                    <div class="room-code-display">Room: ${roomCode}</div>
+                    <div class="player-count">Total Players: ${this.players.length}</div>
+                </div>
+                <div class="host-join-actions">
+                    <button class="btn btn-small btn-success" onclick="this.parentElement.parentElement.parentElement.remove()">
+                        <i class="fas fa-check"></i> Got it
+                    </button>
+                </div>
+            </div>
+        `;
+        
+        // Add to body for prominent display
+        document.body.appendChild(notification);
+        
+        // Auto-remove after 8 seconds (longer for host)
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 8000);
+        
+        // Add sound effect for host (if supported)
+        this.playJoinSound();
+    }
+    
+    playJoinSound() {
+        // Simple sound effect for player join (if audio context is available)
+        try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+            oscillator.frequency.exponentialRampToValueAtTime(1200, audioContext.currentTime + 0.1);
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.3);
+        } catch (error) {
+            console.log('Audio not supported or blocked');
+        }
+    }
+    
+    updateRoomStatus() {
+        const roomStatusBadge = document.getElementById('roomStatusBadge');
+        if (!roomStatusBadge) return;
+        
+        const playerCount = this.players.length;
+        const minPlayers = 2;
+        
+        if (playerCount < minPlayers) {
+            roomStatusBadge.innerHTML = '<i class="fas fa-clock"></i> Waiting for players...';
+            roomStatusBadge.style.background = 'linear-gradient(135deg, #f59e0b, #d97706)';
+        } else if (playerCount >= minPlayers && !this.gameStarted) {
+            roomStatusBadge.innerHTML = '<i class="fas fa-check-circle"></i> Ready to start!';
+            roomStatusBadge.style.background = 'linear-gradient(135deg, #4ade80, #22c55e)';
+        } else if (this.gameStarted) {
+            roomStatusBadge.innerHTML = '<i class="fas fa-gamepad"></i> Game in progress';
+            roomStatusBadge.style.background = 'linear-gradient(135deg, #8b5cf6, #7c3aed)';
+        }
+    }
+    
+    updateHostControls() {
+        const hostControls = document.getElementById('hostControls');
+        if (!hostControls) return;
+        
+        if (this.isHost) {
+            hostControls.classList.remove('hidden');
+        } else {
+            hostControls.classList.add('hidden');
+        }
+    }
+    
+    showKickPlayerDialog() {
+        if (!this.isHost) return;
+        
+        const playerNames = this.players
+            .filter(p => !p.isHost)
+            .map(p => p.name);
+            
+        if (playerNames.length === 0) {
+            this.showNotification('No Players', 'No players to kick', 'info');
+            return;
+        }
+        
+        const playerName = prompt(`Enter player name to kick:\n\nAvailable players: ${playerNames.join(', ')}`);
+        if (playerName && playerNames.includes(playerName)) {
+            this.kickPlayer(playerName);
+        }
+    }
+    
+    showTransferHostDialog() {
+        if (!this.isHost) return;
+        
+        const playerNames = this.players
+            .filter(p => !p.isHost)
+            .map(p => p.name);
+            
+        if (playerNames.length === 0) {
+            this.showNotification('No Players', 'No players to transfer host to', 'info');
+            return;
+        }
+        
+        const playerName = prompt(`Enter player name to transfer host to:\n\nAvailable players: ${playerNames.join(', ')}`);
+        if (playerName && playerNames.includes(playerName)) {
+            this.transferHost(playerName);
+        }
+    }
+    
+    kickPlayer(playerName) {
+        if (!this.isHost) return;
+        
+        this.socket.emit('kick-player', {
+            roomCode: this.roomCode,
+            playerName: playerName
+        });
+        
+        this.showNotification('Player Kicked', `${playerName} has been kicked from the room`, 'warning');
+    }
+    
+    transferHost(playerName) {
+        if (!this.isHost) return;
+        
+        this.socket.emit('transfer-host', {
+            roomCode: this.roomCode,
+            playerName: playerName
+        });
+        
+        this.showNotification('Host Transferred', `Host privileges transferred to ${playerName}`, 'info');
+    }
+    
+    copyRoomCode() {
+        if (!this.roomCode) return;
+        
+        navigator.clipboard.writeText(this.roomCode).then(() => {
+            this.showNotification('Room Code Copied', `Room code ${this.roomCode} copied to clipboard!`, 'success');
+            
+            // Visual feedback on the button
+            const copyBtn = document.getElementById('copyRoomCodeBtn');
+            if (copyBtn) {
+                const originalHTML = copyBtn.innerHTML;
+                copyBtn.innerHTML = '<i class="fas fa-check"></i>';
+                copyBtn.style.background = 'rgba(34, 197, 94, 0.3)';
+                
+                setTimeout(() => {
+                    copyBtn.innerHTML = originalHTML;
+                    copyBtn.style.background = '';
+                }, 2000);
+            }
+        }).catch(err => {
+            console.error('Failed to copy room code:', err);
+            this.showNotification('Copy Failed', 'Failed to copy room code to clipboard', 'error');
+        });
     }
     
     updateMiniPlayerList() {
@@ -1602,6 +2176,18 @@ class TruthOrDareGame {
         const playersCountEl = document.getElementById('playersCount');
         if (playersCountEl) {
             playersCountEl.textContent = this.players.length;
+            console.log('✅ Updated playersCount element:', this.players.length);
+        } else {
+            console.log('❌ playersCount element not found');
+        }
+        
+        // Also update visible player count
+        const visiblePlayerCount = document.getElementById('visiblePlayerCount');
+        if (visiblePlayerCount) {
+            visiblePlayerCount.textContent = this.players.length;
+            console.log('✅ Updated visiblePlayerCount element:', this.players.length);
+        } else {
+            console.log('❌ visiblePlayerCount element not found');
         }
         
         // Update current player name
@@ -1613,6 +2199,18 @@ class TruthOrDareGame {
                 currentPlayerNameEl.textContent = 'Waiting to start...';
             } else {
                 currentPlayerNameEl.textContent = 'Waiting for host...';
+            }
+        }
+        
+        // Update current player initial
+        const currentPlayerInitialEl = document.getElementById('currentPlayerInitial');
+        if (currentPlayerInitialEl) {
+            if (this.gameStarted && this.currentPlayer) {
+                currentPlayerInitialEl.textContent = this.currentPlayer.name.charAt(0).toUpperCase();
+            } else if (this.isHost && !this.gameStarted) {
+                currentPlayerInitialEl.textContent = 'H';
+            } else {
+                currentPlayerInitialEl.textContent = 'W';
             }
         }
         
@@ -1822,7 +2420,7 @@ class TruthOrDareGame {
         return this.currentPlayer && this.currentPlayer.id === this.socket.id;
     }
     
-    // Voice and Chat
+    // Voice and Chat - Scalable Implementation
     async toggleVoice() {
         this.voiceEnabled = !this.voiceEnabled;
         const voicePanel = document.getElementById('voicePanel');
@@ -1830,9 +2428,30 @@ class TruthOrDareGame {
         
         if (this.voiceEnabled) {
             try {
-                // Get user media
+                // Check if too many players for full voice chat
+                const playerCount = this.players.length;
+                const maxFullVoice = 6; // Limit for full mesh voice
+                
+                if (playerCount > maxFullVoice) {
+                    const useSelectiveVoice = confirm(
+                        `Voice chat with ${playerCount} players works best in selective mode.\n\n` +
+                        `Selective mode: Only active players can hear each other.\n` +
+                        `Full mode: Everyone can hear everyone (may cause issues).\n\n` +
+                        `Choose "OK" for selective mode or "Cancel" for full mode.`
+                    );
+                    this.selectiveVoiceMode = useSelectiveVoice;
+                } else {
+                    this.selectiveVoiceMode = false;
+                }
+                
+                // Get user media with better constraints
                 this.localStream = await navigator.mediaDevices.getUserMedia({ 
-                    audio: true, 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true,
+                        sampleRate: 44100
+                    }, 
                     video: false 
                 });
                 
@@ -1840,17 +2459,31 @@ class TruthOrDareGame {
                 voicePanel.classList.remove('hidden');
                 voiceBtn.innerHTML = '<i class="fas fa-microphone-slash"></i> Voice';
                 voiceBtn.style.background = 'linear-gradient(45deg, #ff6b6b, #ee5a24)';
-                document.getElementById('voiceStatus').textContent = 'Voice chat active';
+                
+                // Initialize mute button state
+                const muteBtn = document.getElementById('muteBtn');
+                muteBtn.innerHTML = '<i class="fas fa-microphone-slash"></i> Mute';
+                muteBtn.style.background = 'linear-gradient(45deg, #ff6b6b, #ee5a24)';
+                
+                // Update status based on mode
+                const statusText = this.selectiveVoiceMode ? 
+                    'Selective voice active (active players only)' : 
+                    'Voice chat active (all players)';
+                document.getElementById('voiceStatus').textContent = statusText;
                 
                 // Notify other players
-                this.socket.emit('voice-toggle', { roomCode: this.roomCode, enabled: true });
-                
-                // Create peer connections with other players
-                this.players.forEach(player => {
-                    if (player.id !== this.socket.id) {
-                        this.createPeerConnection(player.id);
-                    }
+                this.socket.emit('voice-toggle', { 
+                    roomCode: this.roomCode, 
+                    enabled: true,
+                    selectiveMode: this.selectiveVoiceMode 
                 });
+                
+                // Create peer connections based on mode
+                if (this.selectiveVoiceMode) {
+                    this.createSelectiveVoiceConnections();
+                } else {
+                    this.createFullVoiceConnections();
+                }
                 
             } catch (error) {
                 console.error('Error accessing microphone:', error);
@@ -1876,6 +2509,394 @@ class TruthOrDareGame {
             
             this.socket.emit('voice-toggle', { roomCode: this.roomCode, enabled: false });
         }
+    }
+    
+    // Create selective voice connections (only with active/important players)
+    createSelectiveVoiceConnections() {
+        const connectionsToCreate = [];
+        
+        // Always connect to current player if not self
+        if (this.currentPlayer && this.currentPlayer.id !== this.socket.id) {
+            connectionsToCreate.push(this.currentPlayer.id);
+        }
+        
+        // Connect to next player
+        const nextPlayer = this.getNextPlayer();
+        if (nextPlayer && nextPlayer.id !== this.socket.id) {
+            connectionsToCreate.push(nextPlayer.id);
+        }
+        
+        // Connect to previous player
+        const prevPlayer = this.getPreviousPlayer();
+        if (prevPlayer && prevPlayer.id !== this.socket.id) {
+            connectionsToCreate.push(prevPlayer.id);
+        }
+        
+        // For large groups, also connect to players who have voice enabled
+        const voiceEnabledPlayers = this.players.filter(p => 
+            p.id !== this.socket.id && 
+            p.voiceEnabled && 
+            !connectionsToCreate.includes(p.id)
+        );
+        
+        // Limit to 3 additional voice-enabled players to prevent overload
+        const additionalConnections = voiceEnabledPlayers.slice(0, 3);
+        connectionsToCreate.push(...additionalConnections.map(p => p.id));
+        
+        // Create connections
+        connectionsToCreate.forEach(playerId => {
+            this.createPeerConnection(playerId);
+        });
+        
+        console.log(`Selective voice: Connected to ${connectionsToCreate.length} players`);
+    }
+    
+    // Create full voice connections (original behavior)
+    createFullVoiceConnections() {
+        this.players.forEach(player => {
+            if (player.id !== this.socket.id) {
+                this.createPeerConnection(player.id);
+            }
+        });
+        console.log(`Full voice: Connected to ${this.players.length - 1} players`);
+    }
+    
+    // Get next player in turn order
+    getNextPlayer() {
+        if (!this.currentPlayer || this.players.length <= 1) return null;
+        
+        const currentIndex = this.players.findIndex(p => p.id === this.currentPlayer.id);
+        const nextIndex = (currentIndex + 1) % this.players.length;
+        return this.players[nextIndex];
+    }
+    
+    // Get previous player in turn order
+    getPreviousPlayer() {
+        if (!this.currentPlayer || this.players.length <= 1) return null;
+        
+        const currentIndex = this.players.findIndex(p => p.id === this.currentPlayer.id);
+        const prevIndex = currentIndex === 0 ? this.players.length - 1 : currentIndex - 1;
+        return this.players[prevIndex];
+    }
+    
+    // Determine if we should connect to a specific player in selective mode
+    shouldConnectToPlayer(playerId) {
+        if (!this.selectiveVoiceMode) return true;
+        
+        // Always connect to current player
+        if (this.currentPlayer && this.currentPlayer.id === playerId) return true;
+        
+        // Connect to next player
+        const nextPlayer = this.getNextPlayer();
+        if (nextPlayer && nextPlayer.id === playerId) return true;
+        
+        // Connect to previous player
+        const prevPlayer = this.getPreviousPlayer();
+        if (prevPlayer && prevPlayer.id === playerId) return true;
+        
+        // Connect to players who have voice enabled (up to 3 additional)
+        const voiceEnabledPlayers = this.players.filter(p => 
+            p.id !== this.socket.id && 
+            p.voiceEnabled && 
+            p.id !== playerId
+        );
+        
+        return voiceEnabledPlayers.length < 3;
+    }
+    
+    // Update voice connections when turn changes
+    updateVoiceConnectionsForTurn() {
+        if (!this.voiceEnabled || !this.selectiveVoiceMode) return;
+        
+        // Close existing connections
+        Object.keys(this.peerConnections).forEach(playerId => {
+            if (this.peerConnections[playerId]) {
+                this.peerConnections[playerId].close();
+                delete this.peerConnections[playerId];
+            }
+        });
+        
+        // Remove existing audio elements
+        document.querySelectorAll('[id^="audio-"]').forEach(audio => audio.remove());
+        
+        // Create new connections based on current turn
+        this.createSelectiveVoiceConnections();
+    }
+    
+    // Rule System Methods
+    initializePlayerStats(playerId) {
+        if (!this.playerStats[playerId]) {
+            this.playerStats[playerId] = {
+                skipsUsed: 0,
+                questionsAnswered: 0,
+                daresCompleted: 0,
+                totalTime: 0,
+                violations: 0
+            };
+        }
+    }
+    
+    canPlayerSkip(playerId) {
+        this.initializePlayerStats(playerId);
+        return this.playerStats[playerId].skipsUsed < this.gameRules.skipLimit;
+    }
+    
+    recordSkip(playerId) {
+        this.initializePlayerStats(playerId);
+        this.playerStats[playerId].skipsUsed++;
+        this.showNotification('Skip Used', `Player has ${this.gameRules.skipLimit - this.playerStats[playerId].skipsUsed} skips remaining`, 'info');
+    }
+    
+    recordAnswer(playerId, questionType) {
+        this.initializePlayerStats(playerId);
+        this.playerStats[playerId].questionsAnswered++;
+        if (questionType === 'dare') {
+            this.playerStats[playerId].daresCompleted++;
+        }
+    }
+    
+    startQuestionTimer() {
+        if (this.questionTimer) {
+            clearTimeout(this.questionTimer);
+        }
+        
+        this.questionTimer = setTimeout(() => {
+            this.showNotification('Time Up!', 'Time limit reached. Moving to next player.', 'warning');
+            this.nextTurn();
+        }, this.gameRules.timeLimit * 1000);
+    }
+    
+    stopQuestionTimer() {
+        if (this.questionTimer) {
+            clearTimeout(this.questionTimer);
+            this.questionTimer = null;
+        }
+    }
+    
+    validatePlayerCount() {
+        const playerCount = this.players.length;
+        if (playerCount < this.gameRules.minPlayers) {
+            this.showNotification('Not Enough Players', `Need at least ${this.gameRules.minPlayers} players to start`, 'error');
+            return false;
+        }
+        if (playerCount > this.gameRules.maxPlayers) {
+            this.showNotification('Too Many Players', `Maximum ${this.gameRules.maxPlayers} players allowed`, 'error');
+            return false;
+        }
+        return true;
+    }
+    
+    setGameCategory(category) {
+        if (this.gameRules.categories.includes(category)) {
+            this.gameRules.selectedCategory = category;
+            this.showNotification('Category Changed', `Game category set to ${category}`, 'success');
+            return true;
+        }
+        return false;
+    }
+    
+    toggleSafetyMode() {
+        this.gameRules.safetyMode = !this.gameRules.safetyMode;
+        const status = this.gameRules.safetyMode ? 'enabled' : 'disabled';
+        this.showNotification('Safety Mode', `Safety mode ${status}`, 'info');
+    }
+    
+    getFilteredQuestions(category, type) {
+        let questions = this.questions[type] || [];
+        
+        // Filter by category if not 'normal'
+        if (category !== 'normal') {
+            questions = questions.filter(q => 
+                q.category === category || 
+                q.category === 'normal' || 
+                !q.category
+            );
+        }
+        
+        // Apply safety filters if enabled
+        if (this.gameRules.safetyMode) {
+            questions = questions.filter(q => 
+                !q.unsafe && 
+                !q.inappropriate && 
+                q.safe !== false
+            );
+        }
+        
+        return questions;
+    }
+    
+    checkBoundaries(question, playerId) {
+        if (!this.gameRules.boundaries.respectBoundaries) return true;
+        
+        // Check if player has marked this type as uncomfortable
+        const playerBoundaries = this.playerStats[playerId]?.boundaries || {};
+        if (playerBoundaries[question.type] === false) {
+            return false;
+        }
+        
+        return true;
+    }
+    
+    enforceRules() {
+        // Check player count
+        if (!this.validatePlayerCount()) {
+            return false;
+        }
+        
+        // Initialize stats for all players
+        this.players.forEach(player => {
+            this.initializePlayerStats(player.id);
+        });
+        
+        return true;
+    }
+    
+    showRuleViolation(violation, playerName) {
+        this.showNotification('Rule Violation', `${playerName}: ${violation}`, 'warning');
+        this.playerStats[playerName].violations++;
+    }
+    
+    getGameRulesDisplay() {
+        return {
+            maxPlayers: this.gameRules.maxPlayers,
+            minPlayers: this.gameRules.minPlayers,
+            currentCategory: this.gameRules.selectedCategory,
+            safetyMode: this.gameRules.safetyMode,
+            skipLimit: this.gameRules.skipLimit,
+            timeLimit: this.gameRules.timeLimit,
+            boundaries: this.gameRules.boundaries
+        };
+    }
+    
+    // Rules Panel Methods
+    toggleRules() {
+        const rulesPanel = document.getElementById('rulesPanel');
+        const rulesBtn = document.getElementById('rulesToggleBtn');
+        
+        if (!rulesPanel || !rulesBtn) {
+            console.error('Rules panel elements not found');
+            return;
+        }
+        
+        if (rulesPanel.classList.contains('hidden')) {
+            // Show rules panel
+            rulesPanel.classList.remove('hidden');
+            rulesBtn.innerHTML = '<i class="fas fa-book-open"></i> Rules';
+            rulesBtn.style.background = 'linear-gradient(45deg, #4CAF50, #2E7D32)';
+            
+            // Populate current rules
+            this.populateRulesDisplay();
+            console.log('Rules panel opened');
+        } else {
+            // Hide rules panel
+            rulesPanel.classList.add('hidden');
+            rulesBtn.innerHTML = '<i class="fas fa-book"></i> Rules';
+            rulesBtn.style.background = '';
+            console.log('Rules panel closed');
+        }
+    }
+    
+    populateRulesDisplay() {
+        try {
+            // Update display with current rules
+            const minPlayersEl = document.getElementById('minPlayersDisplay');
+            const maxPlayersEl = document.getElementById('maxPlayersDisplay');
+            const categoryEl = document.getElementById('categorySelect');
+            const timeLimitEl = document.getElementById('timeLimitInput');
+            const skipLimitEl = document.getElementById('skipLimitInput');
+            const safetyEl = document.getElementById('safetyModeCheck');
+            const boundariesEl = document.getElementById('respectBoundariesCheck');
+            
+            if (minPlayersEl) minPlayersEl.textContent = this.gameRules.minPlayers;
+            if (maxPlayersEl) maxPlayersEl.textContent = this.gameRules.maxPlayers;
+            if (categoryEl) categoryEl.value = this.gameRules.selectedCategory;
+            if (timeLimitEl) timeLimitEl.value = this.gameRules.timeLimit;
+            if (skipLimitEl) skipLimitEl.value = this.gameRules.skipLimit;
+            if (safetyEl) safetyEl.checked = this.gameRules.safetyMode;
+            if (boundariesEl) boundariesEl.checked = this.gameRules.boundaries.respectBoundaries;
+            
+            console.log('Rules display populated successfully');
+        } catch (error) {
+            console.error('Error populating rules display:', error);
+        }
+    }
+    
+    applyRules() {
+        try {
+            // Get values from form
+            const categoryEl = document.getElementById('categorySelect');
+            const timeLimitEl = document.getElementById('timeLimitInput');
+            const skipLimitEl = document.getElementById('skipLimitInput');
+            const safetyEl = document.getElementById('safetyModeCheck');
+            const boundariesEl = document.getElementById('respectBoundariesCheck');
+            
+            if (!categoryEl || !timeLimitEl || !skipLimitEl || !safetyEl || !boundariesEl) {
+                this.showNotification('Error', 'Rules form elements not found', 'error');
+                return;
+            }
+            
+            const category = categoryEl.value;
+            const timeLimit = parseInt(timeLimitEl.value);
+            const skipLimit = parseInt(skipLimitEl.value);
+            const safetyMode = safetyEl.checked;
+            const respectBoundaries = boundariesEl.checked;
+            
+            // Validate inputs
+            if (isNaN(timeLimit) || timeLimit < 0 || timeLimit > 120) {
+                this.showNotification('Invalid Time Limit', 'Time limit must be between 0 and 120 seconds', 'error');
+                return;
+            }
+            
+            if (isNaN(skipLimit) || skipLimit < 0 || skipLimit > 10) {
+                this.showNotification('Invalid Skip Limit', 'Skip limit must be between 0 and 10', 'error');
+                return;
+            }
+            
+            // Update rules
+            this.gameRules.selectedCategory = category;
+            this.gameRules.timeLimit = timeLimit;
+            this.gameRules.skipLimit = skipLimit;
+            this.gameRules.safetyMode = safetyMode;
+            this.gameRules.boundaries.respectBoundaries = respectBoundaries;
+            
+            // Notify other players if game is started
+            if (this.gameStarted) {
+                this.socket.emit('rules-updated', {
+                    roomCode: this.roomCode,
+                    rules: this.getGameRulesDisplay()
+                });
+            }
+            
+            this.showNotification('Rules Updated', 'Game rules have been applied successfully', 'success');
+            this.toggleRules(); // Close the panel
+            console.log('Rules applied successfully:', this.gameRules);
+        } catch (error) {
+            console.error('Error applying rules:', error);
+            this.showNotification('Error', 'Failed to apply rules', 'error');
+        }
+    }
+    
+    resetRules() {
+        // Reset to default rules
+        this.gameRules = {
+            maxPlayers: 8,
+            minPlayers: 2,
+            categories: ['normal', 'couple', 'mystery', 'dare'],
+            selectedCategory: 'normal',
+            safetyMode: true,
+            skipLimit: 3,
+            timeLimit: 30,
+            scoring: false,
+            boundaries: {
+                respectBoundaries: true,
+                skipUncomfortable: true,
+                safeDares: true,
+                supportiveEnvironment: true
+            }
+        };
+        
+        this.populateRulesDisplay();
+        this.showNotification('Rules Reset', 'Rules have been reset to default values', 'info');
     }
     
     toggleChat() {
@@ -1926,6 +2947,35 @@ class TruthOrDareGame {
     updateVoiceStatus(player, enabled) {
         // Update voice status for other players
         console.log(`${player} voice ${enabled ? 'enabled' : 'disabled'}`);
+        
+        // Update voice status display with connection count
+        if (this.voiceEnabled) {
+            const connectionCount = Object.keys(this.peerConnections).length;
+            const statusText = this.selectiveVoiceMode ? 
+                `Selective voice active (${connectionCount} connections)` : 
+                `Voice chat active (${connectionCount} connections)`;
+            document.getElementById('voiceStatus').textContent = statusText;
+        }
+    }
+    
+    updatePlayerMuteStatus(player, muted) {
+        // Update mute status for other players
+        console.log(`${player} ${muted ? 'muted' : 'unmuted'}`);
+        
+        // Update player list to show mute status
+        const playerElement = document.querySelector(`[data-player="${player}"]`);
+        if (playerElement) {
+            const voiceIcon = playerElement.querySelector('.voice-icon');
+            if (voiceIcon) {
+                if (muted) {
+                    voiceIcon.className = 'voice-icon fas fa-microphone-slash muted';
+                    voiceIcon.title = 'Muted';
+                } else {
+                    voiceIcon.className = 'voice-icon fas fa-microphone';
+                    voiceIcon.title = 'Voice enabled';
+                }
+            }
+        }
     }
     
     // WebRTC Handler Functions
@@ -2000,8 +3050,25 @@ class TruthOrDareGame {
     
     async createPeerConnection(playerId) {
         try {
+            // Enhanced STUN/TURN configuration for better connectivity
             const peerConnection = new RTCPeerConnection({
-                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' },
+                    { urls: 'stun:stun3.l.google.com:19302' },
+                    { urls: 'stun:stun4.l.google.com:19302' },
+                    { urls: 'stun:stun.ekiga.net' },
+                    { urls: 'stun:stun.ideasip.com' },
+                    { urls: 'stun:stun.schlund.de' },
+                    { urls: 'stun:stun.stunprotocol.org:3478' },
+                    { urls: 'stun:stun.voiparound.com' },
+                    { urls: 'stun:stun.voipbuster.com' },
+                    { urls: 'stun:stun.voipstunt.com' },
+                    { urls: 'stun:stun.voxgratia.org' },
+                    { urls: 'stun:stun.xten.com' }
+                ],
+                iceCandidatePoolSize: 10
             });
             
             this.peerConnections[playerId] = peerConnection;
@@ -2013,12 +3080,49 @@ class TruthOrDareGame {
                 });
             }
             
+            // Enhanced connection monitoring
+            peerConnection.onconnectionstatechange = () => {
+                const state = peerConnection.connectionState;
+                console.log(`Connection to ${playerId}: ${state}`);
+                
+                if (state === 'failed' || state === 'disconnected') {
+                    console.warn(`Voice connection to ${playerId} failed`);
+                    this.showNotification('Voice Connection Issue', 
+                        'Some voice connections may not be working properly', 'warning');
+                } else if (state === 'connected') {
+                    console.log(`Voice connection to ${playerId} established`);
+                }
+            };
+            
+            // Monitor ICE connection state
+            peerConnection.oniceconnectionstatechange = () => {
+                const iceState = peerConnection.iceConnectionState;
+                console.log(`ICE connection to ${playerId}: ${iceState}`);
+                
+                if (iceState === 'failed') {
+                    console.error(`ICE connection to ${playerId} failed`);
+                    // Try to reconnect after a delay
+                    setTimeout(() => {
+                        if (this.peerConnections[playerId] && this.voiceEnabled) {
+                            console.log(`Attempting to reconnect to ${playerId}`);
+                            this.createPeerConnection(playerId);
+                        }
+                    }, 3000);
+                }
+            };
+            
+            // Handle ICE gathering state
+            peerConnection.onicegatheringstatechange = () => {
+                console.log(`ICE gathering for ${playerId}: ${peerConnection.iceGatheringState}`);
+            };
+            
             // Handle incoming stream
             peerConnection.ontrack = (event) => {
                 const audio = document.createElement('audio');
                 audio.srcObject = event.streams[0];
                 audio.autoplay = true;
                 audio.volume = 0.8;
+                audio.id = `audio-${playerId}`;
                 document.body.appendChild(audio);
             };
             
@@ -2046,16 +3150,39 @@ class TruthOrDareGame {
     }
     
     toggleMute() {
-        const muteBtn = document.getElementById('muteBtn');
-        const isMuted = muteBtn.innerHTML.includes('microphone-slash');
-        
-        if (isMuted) {
-            muteBtn.innerHTML = '<i class="fas fa-microphone-slash"></i> Mute';
-            document.getElementById('voiceStatus').textContent = 'Voice chat active';
-        } else {
-            muteBtn.innerHTML = '<i class="fas fa-microphone"></i> Unmute';
-            document.getElementById('voiceStatus').textContent = 'Voice chat muted';
+        if (!this.localStream) {
+            console.warn('No local stream available for muting');
+            return;
         }
+        
+        const muteBtn = document.getElementById('muteBtn');
+        const isCurrentlyMuted = this.localStream.getAudioTracks()[0]?.enabled === false;
+        
+        // Toggle audio track enabled state
+        this.localStream.getAudioTracks().forEach(track => {
+            track.enabled = isCurrentlyMuted;
+        });
+        
+        // Update UI based on new state
+        if (isCurrentlyMuted) {
+            // Unmuting
+            muteBtn.innerHTML = '<i class="fas fa-microphone-slash"></i> Mute';
+            muteBtn.style.background = 'linear-gradient(45deg, #ff6b6b, #ee5a24)';
+            document.getElementById('voiceStatus').textContent = 'Voice chat active';
+            console.log('Microphone unmuted');
+        } else {
+            // Muting
+            muteBtn.innerHTML = '<i class="fas fa-microphone"></i> Unmute';
+            muteBtn.style.background = 'linear-gradient(45deg, #6c757d, #495057)';
+            document.getElementById('voiceStatus').textContent = 'Voice chat muted';
+            console.log('Microphone muted');
+        }
+        
+        // Notify other players about mute status
+        this.socket.emit('voice-mute-toggle', {
+            roomCode: this.roomCode,
+            muted: !isCurrentlyMuted
+        });
     }
     
     // Question Management

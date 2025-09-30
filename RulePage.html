@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>How to Play Chok Hmong</title>
     <style>
         * {
@@ -330,21 +330,207 @@
             box-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
         }
 
-        @media (max-width: 768px) {
+        /* Mobile First Responsive Design */
+        @media (max-width: 480px) {
+            .container {
+                padding: 10px;
+            }
+            
+            .title {
+                font-size: 2rem;
+                margin-bottom: 30px;
+            }
+            
+            .cards-grid {
+                grid-template-columns: 1fr;
+                gap: 15px;
+                margin-bottom: 30px;
+            }
+            
+            .card {
+                padding: 20px;
+                margin-bottom: 15px;
+            }
+            
+            .card-title {
+                font-size: 1.2rem;
+            }
+            
+            .card-content {
+                font-size: 0.9rem;
+            }
+            
+            .category-buttons {
+                grid-template-columns: 1fr;
+                gap: 15px;
+                margin-bottom: 30px;
+            }
+            
+            .category-btn {
+                padding: 15px;
+                font-size: 1rem;
+            }
+            
+            .adventure-section {
+                padding: 25px;
+            }
+            
+            .adventure-title {
+                font-size: 1.8rem;
+                margin-bottom: 20px;
+            }
+            
+            .start-btn {
+                padding: 15px 40px;
+                font-size: 1rem;
+                width: 100%;
+                max-width: 300px;
+            }
+            
+            .header {
+                flex-direction: column;
+                gap: 15px;
+                margin-bottom: 30px;
+            }
+            
+            .logo {
+                padding: 10px 15px;
+                font-size: 12px;
+            }
+            
+            .back-btn {
+                padding: 10px 16px;
+                font-size: 12px;
+            }
+        }
+
+        @media (min-width: 481px) and (max-width: 768px) {
             .title {
                 font-size: 2.5rem;
             }
             
             .cards-grid {
-                grid-template-columns: 1fr;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 20px;
             }
             
             .category-buttons {
-                grid-template-columns: 1fr;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 15px;
             }
             
             .container {
-                padding: 10px;
+                padding: 15px;
+            }
+            
+            .adventure-section {
+                padding: 30px;
+            }
+        }
+
+        @media (min-width: 769px) and (max-width: 1024px) {
+            .cards-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 25px;
+            }
+            
+            .category-buttons {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 20px;
+            }
+        }
+
+        @media (min-width: 1025px) {
+            .cards-grid {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 25px;
+            }
+            
+            .category-buttons {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 20px;
+            }
+        }
+
+        /* Landscape orientation for mobile */
+        @media (max-height: 500px) and (orientation: landscape) {
+            .title {
+                font-size: 1.8rem;
+                margin-bottom: 20px;
+            }
+            
+            .cards-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 15px;
+            }
+            
+            .card {
+                padding: 15px;
+            }
+            
+            .adventure-section {
+                padding: 20px;
+            }
+            
+            .adventure-title {
+                font-size: 1.5rem;
+                margin-bottom: 15px;
+            }
+        }
+
+        /* High DPI displays */
+        @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+            .card {
+                border-width: 0.5px;
+            }
+            
+            .category-btn {
+                border-width: 0.5px;
+            }
+        }
+
+        /* Touch device optimizations */
+        @media (hover: none) and (pointer: coarse) {
+            .category-btn {
+                min-height: 50px;
+            }
+            
+            .start-btn {
+                min-height: 50px;
+            }
+            
+            .back-btn {
+                min-height: 44px;
+            }
+        }
+
+        /* Large screens */
+        @media (min-width: 1440px) {
+            .container {
+                max-width: 1400px;
+            }
+            
+            .title {
+                font-size: 4rem;
+            }
+            
+            .cards-grid {
+                gap: 30px;
+            }
+            
+            .card {
+                padding: 40px;
+            }
+            
+            .adventure-section {
+                padding: 50px;
+            }
+        }
+
+        /* Ultra-wide screens */
+        @media (min-width: 1920px) {
+            .container {
+                max-width: 1600px;
             }
         }
     </style>
