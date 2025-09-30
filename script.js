@@ -2428,6 +2428,11 @@ class TruthOrDareGame {
         
         if (this.voiceEnabled) {
             try {
+                // Check browser support
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error('Your browser does not support voice chat. Please use Chrome, Firefox, or Edge.');
+                }
+                
                 // Check if too many players for full voice chat
                 const playerCount = this.players.length;
                 const maxFullVoice = 6; // Limit for full mesh voice
@@ -2444,15 +2449,19 @@ class TruthOrDareGame {
                     this.selectiveVoiceMode = false;
                 }
                 
-                // Get user media with better constraints
+                // Get user media with better constraints and error handling
                 this.localStream = await navigator.mediaDevices.getUserMedia({ 
                     audio: {
                         echoCancellation: true,
                         noiseSuppression: true,
                         autoGainControl: true,
-                        sampleRate: 44100
+                        sampleRate: 44100,
+                        channelCount: 1
                     }, 
                     video: false 
+                }).catch(error => {
+                    console.error('Microphone access denied:', error);
+                    throw new Error('Microphone access is required for voice chat. Please allow microphone access and try again.');
                 });
                 
                 // Show voice panel
@@ -2487,7 +2496,22 @@ class TruthOrDareGame {
                 
             } catch (error) {
                 console.error('Error accessing microphone:', error);
-                this.showNotification('Microphone Access Denied', 'Please allow microphone access for voice chat', 'error');
+                
+                // Provide specific error messages
+                let errorMessage = 'Could not initialize voice chat. ';
+                if (error.name === 'NotAllowedError') {
+                    errorMessage += 'Microphone access was denied. Please allow microphone access and try again.';
+                } else if (error.name === 'NotFoundError') {
+                    errorMessage += 'No microphone found. Please connect a microphone and try again.';
+                } else if (error.name === 'NotSupportedError') {
+                    errorMessage += 'Your browser does not support voice chat. Please use Chrome, Firefox, or Edge.';
+                } else if (error.name === 'SecurityError') {
+                    errorMessage += 'Voice chat requires HTTPS. Please use a secure connection.';
+                } else {
+                    errorMessage += error.message || 'Please check your microphone permissions and try again.';
+                }
+                
+                this.showNotification('Voice Setup Failed', errorMessage, 'error');
                 this.voiceEnabled = false;
             }
         } else {
@@ -2532,23 +2556,22 @@ class TruthOrDareGame {
             connectionsToCreate.push(prevPlayer.id);
         }
         
-        // For large groups, also connect to players who have voice enabled
+        // Connect to ALL players who have voice enabled (not just 3)
         const voiceEnabledPlayers = this.players.filter(p => 
             p.id !== this.socket.id && 
             p.voiceEnabled && 
             !connectionsToCreate.includes(p.id)
         );
         
-        // Limit to 3 additional voice-enabled players to prevent overload
-        const additionalConnections = voiceEnabledPlayers.slice(0, 3);
-        connectionsToCreate.push(...additionalConnections.map(p => p.id));
+        // Add all voice-enabled players to connections
+        connectionsToCreate.push(...voiceEnabledPlayers.map(p => p.id));
         
         // Create connections
         connectionsToCreate.forEach(playerId => {
             this.createPeerConnection(playerId);
         });
         
-        console.log(`Selective voice: Connected to ${connectionsToCreate.length} players`);
+        console.log(`Selective voice: Connected to ${connectionsToCreate.length} players:`, connectionsToCreate);
     }
     
     // Create full voice connections (original behavior)
@@ -2594,14 +2617,11 @@ class TruthOrDareGame {
         const prevPlayer = this.getPreviousPlayer();
         if (prevPlayer && prevPlayer.id === playerId) return true;
         
-        // Connect to players who have voice enabled (up to 3 additional)
-        const voiceEnabledPlayers = this.players.filter(p => 
-            p.id !== this.socket.id && 
-            p.voiceEnabled && 
-            p.id !== playerId
-        );
+        // Connect to ALL players who have voice enabled (no limit)
+        const targetPlayer = this.players.find(p => p.id === playerId);
+        if (targetPlayer && targetPlayer.voiceEnabled) return true;
         
-        return voiceEnabledPlayers.length < 3;
+        return false;
     }
     
     // Update voice connections when turn changes
@@ -2947,6 +2967,28 @@ class TruthOrDareGame {
     updateVoiceStatus(player, enabled) {
         // Update voice status for other players
         console.log(`${player} voice ${enabled ? 'enabled' : 'disabled'}`);
+        
+        // If someone joins voice chat and we're already in voice, connect to them
+        if (enabled && this.voiceEnabled) {
+            const playerObj = this.players.find(p => p.name === player);
+            if (playerObj && playerObj.id !== this.socket.id) {
+                // Check if we should connect to this player
+                if (!this.selectiveVoiceMode || this.shouldConnectToPlayer(playerObj.id)) {
+                    console.log(`Connecting to ${player} for voice chat`);
+                    this.createPeerConnection(playerObj.id);
+                }
+            }
+        }
+        
+        // If someone leaves voice chat, disconnect from them
+        if (!enabled && this.voiceEnabled) {
+            const playerObj = this.players.find(p => p.name === player);
+            if (playerObj && this.peerConnections[playerObj.id]) {
+                console.log(`Disconnecting from ${player}`);
+                this.peerConnections[playerObj.id].close();
+                delete this.peerConnections[playerObj.id];
+            }
+        }
         
         // Update voice status display with connection count
         if (this.voiceEnabled) {
@@ -3613,6 +3655,58 @@ class TruthOrDareGame {
         }
         
         return true;
+    }
+
+    // Voice Connection Diagnostics
+    async diagnoseVoiceConnection() {
+        const diagnostics = {
+            browserSupport: false,
+            microphoneAccess: false,
+            webrtcSupport: false,
+            networkConnectivity: false,
+            issues: []
+        };
+        
+        try {
+            // Check browser support
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                diagnostics.browserSupport = true;
+            } else {
+                diagnostics.issues.push('Browser does not support getUserMedia API');
+            }
+            
+            // Check WebRTC support
+            if (window.RTCPeerConnection) {
+                diagnostics.webrtcSupport = true;
+            } else {
+                diagnostics.issues.push('Browser does not support WebRTC');
+            }
+            
+            // Test microphone access
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                diagnostics.microphoneAccess = true;
+                stream.getTracks().forEach(track => track.stop());
+            } catch (error) {
+                diagnostics.issues.push(`Microphone access failed: ${error.message}`);
+            }
+            
+            // Test network connectivity
+            try {
+                const response = await fetch('https://stun.l.google.com:19302', { mode: 'no-cors' });
+                diagnostics.networkConnectivity = true;
+            } catch (error) {
+                diagnostics.issues.push('Network connectivity issues detected');
+            }
+            
+            console.log('Voice Connection Diagnostics:', diagnostics);
+            return diagnostics;
+            
+        } catch (error) {
+            console.error('Diagnostic error:', error);
+            diagnostics.issues.push(`Diagnostic failed: ${error.message}`);
+            return diagnostics;
+        }
     }
 
     // Utility
